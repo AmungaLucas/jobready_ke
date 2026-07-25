@@ -1,0 +1,2002 @@
+     1→# Job Matching Platform - Technical Documentation
+     2→
+     3→## Version 3.0 | May 2026
+     4→
+     5→---
+     6→
+     7→# Table of Contents
+     8→
+     9→1. [Platform Philosophy](#1-platform-philosophy)
+    10→2. [System Architecture](#2-system-architecture)
+    11→3. [Data Schemas](#3-data-schemas)
+    12→4. [Data Normalization & Enums](#4-data-normalization--enums)
+    13→5. [LLM Extraction](#5-llm-extraction)
+    14→6. [Matching Algorithm](#6-matching-algorithm)
+    15→7. [Database Schema](#7-database-schema)
+    16→8. [Tech Stack Recommendations](#8-tech-stack-recommendations)
+    17→9. [API Endpoints](#9-api-endpoints)
+    18→10. [User Interface Flows](#10-user-interface-flows)
+    19→11. [Background Jobs](#11-background-jobs)
+    20→12. [Implementation Roadmap](#12-implementation-roadmap)
+    21→
+    22→---
+    23→
+    24→# 1. Platform Philosophy
+    25→
+    26→## Core Principle: Candidate Empowerment, Not Disqualification
+    27→
+    28→Our platform is designed to **open doors** for job seekers, not close them.
+    29→
+    30→### The Kenyan Reality:
+    31→- A graduate may work multiple jobs for survival
+    32→- A BCom graduate might be: Cashier (Today) → Teller (Next Year) → Auditor (Following Year)
+    33→- Job seekers have **multiple professional identities**, not one fixed career path
+    34→
+    35→### What We Do:
+    36→- Acknowledge all work experiences as valid
+    37→- Present jobs that match **ANY** of the candidate's experiences
+    38→- Allow candidates to choose up to **3 career trajectories** to focus on
+    39→- Never disqualify candidates based on missing constraints
+    40→- Let candidates decide if they meet administrative requirements (e.g., driving license, age)
+    41→- Rank jobs so best matches appear first, but all matching jobs are visible
+    42→- Show location as information, never as a filter
+    43→
+    44→### What We Don't Do:
+    45→- Penalize candidates for having unknown employers
+    46→- Lock candidates into a single career path
+    47→- Use hard filters that reject candidates
+    48→- Extract or rely on ambiguous data like company sector from CVs
+    49→- Match on administrative requirements (license, age, nationality, languages)
+    50→- Force candidates into rigid career categories
+    51→- Filter jobs by location (candidates decide if they want to relocate)
+    52→
+    53→---
+    54→
+    55→# 2. System Architecture
+    56→
+    57→## 2.1 The "Extract Once, Compute Many" Approach
+    58→
+    59→**Key Decision:** LLM fires **ONCE** for CV parsing and **ONLY WHEN NEEDED** for JD parsing. All matching happens in the database/backend using structured data.
+    60→
+    61→### Why This Approach:
+    62→
+    63→| Factor | Traditional (LLM Every Time) | Our Approach (Extract Once) |
+    64→|--------|------------------------------|------------------------------|
+    65→| **Cost** | $0.001 per match | $0.001 per upload + $0 for matches |
+    66→| **Speed** | Slow (LLM latency) | Instant (DB query) |
+    67→| **Scalability** | Linear cost scaling | Fixed cost per upload |
+    68→| **Accuracy** | Inconsistent (LLM varies) | Deterministic (math) |
+    69→
+    70→### Architecture Flow Diagram:
+    71→
+    72→```
+    73→┌─────────────────────────────────────────────────────────────────────────────┐
+    74→│                           USER UPLOADS CV                                   │
+    75→│              (PDF/DOCX/Paste/Fill Form)                                    │
+    76→└─────────────────────────────────┬───────────────────────────────────────────┘
+    77→                                  │
+    78→                                  ▼
+    79→                        ┌─────────────────┐
+    80→                        │  Text Extract   │ (pdf-parse, mammoth, etc.)
+    81→                        └────────┬────────┘
+    82→                                 │
+    83→                                 ▼
+    84→                        ┌─────────────────┐
+    85→                        │  LLM (1st Fire) │ (Costs ~$0.001)
+    86→                        │  Parse to JSON  │
+    87→                        └────────┬────────┘
+    88→                                 │
+    89→                                 ▼
+    90→                        ┌─────────────────┐
+    91→                        │   Normalize     │ (Clean up strings, standardize dates)
+    92→                        │   & Store       │
+    93→                        └────────┬────────┘
+    94→                                 │
+    95→                                 ▼
+    96→                        ┌─────────────────┐
+    97→                        │   MySQL         │ (Structured JSON stored)
+    98→                        └────────┬────────┘
+    99→                                 │
+   100→                                 │
+   101→┌─────────────────────────────────────────────────────────────────────────────┐
+   102→│                           ADMIN POSTS JOB                                  │
+   103→│                                                                             │
+   104→│  ┌─────────────────────────────────────────────────────────────────────┐   │
+   105→│  │  OPTION 1: PASTE JD TEXT → LLM (2nd Fire) → Auto-fill              │   │
+   106→│  │  OPTION 2: UPLOAD FILE → Extract → LLM (2nd Fire) → Auto-fill      │   │
+   107→│  │  OPTION 3: PASTE JSON → Validate → Pre-fill (NO LLM)               │   │
+   108→│  │  OPTION 4: FILL FORM → Direct Save (NO LLM)                        │   │
+   109→│  └─────────────────────────────────────────────────────────────────────┘   │
+   110→└─────────────────────────────────┬───────────────────────────────────────────┘
+   111→                                  │
+   112→                                  ▼
+   113→                        ┌─────────────────┐
+   114→                        │   Normalize     │
+   115→                        │   & Store       │
+   116→                        └────────┬────────┘
+   117→                                 │
+   118→                                 ▼
+   119→                        ┌─────────────────┐
+   120→                        │   MySQL         │ (Structured JSON stored)
+   121→                        └────────┬────────┘
+   122→                                 │
+   123→                                 ▼
+   124→┌─────────────────────────────────────────────────────────────────────────────┐
+   125→│                  BACKGROUND MATCHING (NO LLM INVOLVED)                    │
+   126→│                                                                           │
+   127→│  1. Cron Job runs every 5 minutes                                         │
+   128→│  2. Query DB: Find candidates with matching function (indexed)            │
+   129→│  3. Calculate Score: Skills + Education + Experience                     │
+   130→│  4. Save Match Result to job_matches table                               │
+   131→│  5. Cost: ZERO USD                                                        │
+   132→└─────────────────────────────────┬───────────────────────────────────────────┘
+   133→                                  │
+   134→                                  ▼
+   135→┌─────────────────────────────────────────────────────────────────────────────┐
+   136→│                    CANDIDATE DASHBOARD LOADS                              │
+   137→│                                                                           │
+   138→│   "SELECT * FROM job_matches WHERE candidate_id = X ORDER BY score DESC"  │
+   139→│   (Instant display, no LLM waiting time)                                 │
+   140→└─────────────────────────────────────────────────────────────────────────────┘
+   141→```
+   142→
+   143→---
+   144→
+   145→# 3. Data Schemas
+   146→
+   147→## 3.1 Candidate Schema (Stored in Database)
+   148→
+   149→### Core Fields (Used for Matching)
+   150→
+   151→```json
+   152→{
+   153→  "candidate_id": "cand_12345",
+   154→  
+   155→  "profile": {
+   156→    "full_name": "John Mwangi",
+   157→    "phone": "+254712345678",
+   158→    "email": "john.mwangi@gmail.com",
+   159→    "location": "Nairobi, Kenya"
+   160→  },
+   161→  
+   162→  "education": [
+   163→    {
+   164→      "level": "Bachelor",        // Enum: PhD|Masters|Bachelor|Diploma|Certificate|None
+   165→      "field": "Commerce",
+   166→      "institution": "University of Nairobi",
+   167→      "start_year": 2019,
+   168→      "end_year": 2022
+   169→    },
+   170→    {
+   171→      "level": "Certificate",
+   172→      "field": "CPA",
+   173→      "institution": "ICPAK",
+   174→      "start_year": 2020,
+   175→      "end_year": 2022
+   176→    }
+   177→  ],
+   178→  
+   179→  "work_experience": [
+   180→    {
+   181→      "cluster_id": "exp_001",
+   182→      "function": "Administration",      // Enum from FUNCTION_ENUMS
+   183→      "job_titles": ["Admin Assistant", "Office Administrator"],
+   184→      "skills": ["Filing", "Scheduling", "Customer Service", "MS Office"],
+   185→      "years_experience": 3.5,
+   186→      "representative_company": "Amunga & Sons Ltd",
+   187→      "selected": true                   // User selected this trajectory
+   188→    },
+   189→    {
+   190→      "cluster_id": "exp_002",
+   191→      "function": "Finance",
+   192→      "job_titles": ["Accounts Assistant", "Bookkeeper"],
+   193→      "skills": ["Bookkeeping", "Reconciliation", "QuickBooks"],
+   194→      "years_experience": 2.0,
+   195→      "representative_company": "KCB Bank",
+   196→      "selected": false                  // User did NOT select this trajectory
+   197→    },
+   198→    {
+   199→      "cluster_id": "exp_003",
+   200→      "function": "Sales",
+   201→      "job_titles": ["Cashier", "Sales Associate"],
+   202→      "skills": ["POS", "Cash Handling", "Sales"],
+   203→      "years_experience": 1.5,
+   204→      "representative_company": "Naivas Supermarket",
+   205→      "selected": false                  // User did NOT select this trajectory
+   206→    }
+   207→  ],
+   208→  
+   209→  "created_at": "2026-04-25T10:00:00Z",
+   210→  "updated_at": "2026-04-25T10:00:00Z"
+   211→}
+   212→```
+   213→
+   214→### Field Definitions:
+   215→
+   216→| Field | Type | Description | Example |
+   217→|-------|------|-------------|---------|
+   218→| `profile.full_name` | String | Candidate's full name | "John Mwangi" |
+   219→| `profile.phone` | String | Phone number | "+254712345678" |
+   220→| `profile.email` | String | Email address | "john@gmail.com" |
+   221→| `profile.location` | String | Current location | "Nairobi, Kenya" |
+   222→| `education[].level` | Enum | Highest education level | "Bachelor" |
+   223→| `education[].field` | String | Field of study | "Commerce" |
+   224→| `education[].institution` | String | Institution name | "University of Nairobi" |
+   225→| `work_experience[].function` | Enum | Broad career function | "Administration" |
+   226→| `work_experience[].job_titles` | Array | Actual role titles | ["Admin Assistant"] |
+   227→| `work_experience[].skills` | Array | Hard skills | ["Filing", "Scheduling"] |
+   228→| `work_experience[].years_experience` | Float | Years in this cluster | 3.5 |
+   229→| `work_experience[].selected` | Boolean | User-selected trajectory | true |
+   230→
+   231→---
+   232→
+   233→## 3.2 Extra Fields (Stored for Resume Builder, NOT Used for Matching)
+   234→
+   235→```json
+   236→{
+   237→  "extras": {
+   238→    "certifications": [
+   239→      {
+   240→        "name": "CPA Part 1",
+   241→        "institution": "ICPAK",
+   242→        "year": 2021
+   243→      }
+   244→    ],
+   245→    "referees": [
+   246→      {
+   247→        "name": "John Okanga",
+   248→        "title": "CEO",
+   249→        "company": "TAABCO Research",
+   250→        "phone": "+254722389941",
+   251→        "email": "jokanga@taabco.org"
+   252→      }
+   253→    ],
+   254→    "languages": ["English", "Kiswahili"],
+   255→    "professional_memberships": ["KISM"],
+   256→    "trainings": [
+   257→      {
+   258→        "name": "Leadership Training",
+   259→        "institution": "USAID",
+   260→        "year": 2015
+   261→      }
+   262→    ]
+   263→  }
+   264→}
+   265→```
+   266→
+   267→---
+   268→
+   269→## 3.3 Job Schema (Stored in Database)
+   270→
+   271→### Core Fields (Used for Matching)
+   272→
+   273→```json
+   274→{
+   275→  "job_id": "job_67890",
+   276→  
+   277→  "job": {
+   278→    "title": "Admin Assistant",
+   279→    "company": "Aga Khan Hospital",
+   280→    "sector": "Healthcare",                    // Enum from SECTOR_ENUMS
+   281→    "job_function": "Administration",          // Enum from FUNCTION_ENUMS
+   282→    "location": "Nairobi, Kenya",
+   283→    "job_type": "Full-time",                  // Full-time|Part-time|Contract|Internship
+   284→    
+   285→    "required_skills": [
+   286→      "Filing",
+   287→      "Scheduling", 
+   288→      "Customer Service",
+   289→      "MS Office"
+   290→    ],
+   291→    
+   292→    "required_education": {
+   293→      "level": "Diploma",                     // Enum from EDUCATION_LEVEL_ENUMS
+   294→      "field": "Business Administration"
+   295→    },
+   296→    
+   297→    "required_experience_years": 2,
+   298→    
+   299→    "description": "Full job description text...",
+   300→    "application_deadline": "2026-06-30",
+   301→    
+   302→    "posted_by": "admin_001",
+   303→    "created_at": "2026-04-25T10:00:00Z"
+   304→  }
+   305→}
+   306→```
+   307→
+   308→### Field Definitions:
+   309→
+   310→| Field | Type | Description | Example |
+   311→|-------|------|-------------|---------|
+   312→| `title` | String | Job title | "Admin Assistant" |
+   313→| `company` | String | Company name | "Aga Khan Hospital" |
+   314→| `sector` | Enum | Industry sector | "Healthcare" |
+   315→| `job_function` | Enum | Broad job function | "Administration" |
+   316→| `location` | String | Job location | "Nairobi, Kenya" |
+   317→| `job_type` | Enum | Employment type | "Full-time" |
+   318→| `required_skills` | Array | Required hard skills | ["Filing", "Scheduling"] |
+   319→| `required_education.level` | Enum | Minimum education level | "Diploma" |
+   320→| `required_education.field` | String | Preferred field | "Business Administration" |
+   321→| `required_experience_years` | Integer | Minimum years | 2 |
+   322→
+   323→---
+   324→
+   325→# 4. Data Normalization & Enums
+   326→
+   327→## 4.1 Why Normalization Matters
+   328→
+   329→Without normalization, the same concept appears in multiple forms:
+   330→
+   331→| Raw LLM Output | Issue |
+   332→|----------------|-------|
+   333→| "BSc", "B.Sc", "Bachelor of Science", "Bachelors" | 4 variations of "Bachelor" |
+   334→| "Admin", "Administration", "Office Admin" | 3 variations of "Administration" |
+   335→| "Telco", "Telecom", "Telecommunications" | 3 variations of "Telecommunications" |
+   336→
+   337→**Normalization** maps all variations to a single canonical value.
+   338→
+   339→## 4.2 Education Level Enums
+   340→
+   341→```javascript
+   342→export const EDUCATION_LEVEL_ENUMS = {
+   343→    'PhD': ['phd', 'doctorate', 'doctor of', 'd.phil', 'ph.d'],
+   344→    'Masters': ['masters', 'master of', 'msc', 'ma', 'm.a', 'm.sc', 'mba', 'llm', 'm.ed'],
+   345→    'Bachelor': ['bachelor', 'bsc', 'b.a', 'ba', 'b.com', 'bcom', 'b.ed', 'b.eng', 'llb', 'bachelor of'],
+   346→    'Diploma': ['diploma', 'dip', 'dipl'],
+   347→    'Certificate': ['certificate', 'cert', 'certif'],
+   348→    'None': ['none', 'n/a', 'nil']
+   349→};
+   350→```
+   351→
+   352→## 4.3 Job Function Enums
+   353→
+   354→```javascript
+   355→export const FUNCTION_ENUMS = {
+   356→    'Administration': ['admin', 'administrative', 'office admin', 'office manager', 'executive assistant', 'clerk'],
+   357→    'Finance': ['finance', 'accounting', 'accountant', 'audit', 'auditor', 'financial', 'bookkeeping', 'treasury'],
+   358→    'IT': ['it', 'information technology', 'computer', 'software', 'programming', 'developer', 'network', 'cybersecurity', 'systems'],
+   359→    'Engineering': ['engineering', 'engineer', 'civil', 'mechanical', 'electrical', 'automotive', 'structural'],
+   360→    'Sales': ['sales', 'selling', 'business development', 'relationship officer', 'account manager'],
+   361→    'Marketing': ['marketing', 'brand', 'digital marketing', 'communications', 'pr', 'public relations'],
+   362→    'Healthcare': ['healthcare', 'medical', 'nursing', 'clinical', 'doctor', 'lab', 'pharmacy', 'therapist'],
+   363→    'Education': ['education', 'teaching', 'lecturer', 'trainer', 'instructor', 'tutor', 'faculty'],
+   364→    'Hospitality': ['hospitality', 'hotel', 'restaurant', 'catering', 'chef', 'cook', 'lodging'],
+   365→    'Logistics': ['logistics', 'supply chain', 'procurement', 'warehouse', 'transport', 'fleet', 'purchasing'],
+   366→    'Legal': ['legal', 'law', 'lawyer', 'advocate', 'paralegal', 'counsel'],
+   367→    'Customer Service': ['customer service', 'customer care', 'call center', 'front desk', 'reception', 'support'],
+   368→    'Operations': ['operations', 'operational', 'production', 'manufacturing', 'facilities'],
+   369→    'Human Resources': ['hr', 'human resources', 'recruitment', 'people', 'talent', 'staffing'],
+   370→    'Other': []
+   371→};
+   372→```
+   373→
+   374→## 4.4 Sector Enums (Job Only)
+   375→
+   376→```javascript
+   377→export const SECTOR_ENUMS = {
+   378→    'Agriculture': ['agriculture', 'agri', 'farming', 'horticulture', 'agribusiness'],
+   379→    'Banking': ['banking', 'financial services', 'bank', 'microfinance'],
+   380→    'Construction': ['construction', 'building', 'real estate', 'property'],
+   381→    'Education': ['education', 'school', 'university', 'college', 'academy'],
+   382→    'Energy': ['energy', 'oil', 'gas', 'power', 'electric', 'renewable'],
+   383→    'Finance': ['finance', 'investment', 'asset management', 'wealth'],
+   384→    'Government': ['government', 'public service', 'county', 'state', 'parastatal'],
+   385→    'Healthcare': ['healthcare', 'hospital', 'clinic', 'medical', 'pharma', 'health'],
+   386→    'Hospitality': ['hospitality', 'hotel', 'restaurant', 'tourism', 'travel'],
+   387→    'Insurance': ['insurance', 'assurance', 'risk'],
+   388→    'IT/Technology': ['it', 'technology', 'software', 'tech', 'telecom'],
+   389→    'Legal': ['legal', 'law firm', 'advocates', 'courts'],
+   390→    'Manufacturing': ['manufacturing', 'production', 'factory', 'industrial', 'fmcg'],
+   391→    'Media': ['media', 'broadcasting', 'publishing', 'news', 'content'],
+   392→    'NGO/Development': ['ngo', 'non-profit', 'development', 'humanitarian', 'aid'],
+   393→    'Real Estate': ['real estate', 'property', 'housing', 'realtor'],
+   394→    'Retail': ['retail', 'supermarket', 'store', 'e-commerce', 'wholesale'],
+   395→    'Telecommunications': ['telecom', 'telco', 'mobile', 'internet', 'communications'],
+   396→    'Transport/Logistics': ['transport', 'logistics', 'shipping', 'aviation', 'cargo'],
+   397→    'Other': []
+   398→};
+   399→```
+   400→
+   401→## 4.5 Job Type Enums
+   402→
+   403→```javascript
+   404→export const JOB_TYPE_ENUMS = {
+   405→    'Full-time': ['full-time', 'full time', 'permanent', 'fulltime'],
+   406→    'Part-time': ['part-time', 'part time', 'parttime'],
+   407→    'Contract': ['contract', 'contractual', 'temporary'],
+   408→    'Internship': ['internship', 'intern', 'trainee', 'graduate trainee']
+   409→};
+   410→```
+   411→
+   412→## 4.6 Normalization Implementation
+   413→
+   414→### Word-Boundary Matching (Avoids False Positives)
+   415→
+   416→```javascript
+   417→// lib/normalize.js
+   418→import { EDUCATION_LEVEL_ENUMS, FUNCTION_ENUMS, SECTOR_ENUMS } from './enums';
+   419→
+   420→/**
+   421→ * Normalize using word-boundary regex to avoid false matches
+   422→ * "hr" matches "hr" but NOT "research" or "architecture"
+   423→ */
+   424→function normalizeWithWordBoundaries(raw, enumMap, defaultVal = 'Other') {
+   425→    if (!raw) return defaultVal;
+   426→    const lower = raw.toLowerCase().trim();
+   427→    
+   428→    for (const [canonical, variations] of Object.entries(enumMap)) {
+   429→        for (const variation of variations) {
+   430→            // Use word boundaries to avoid substring false positives
+   431→            const regex = new RegExp(`\\b${variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+   432→            if (regex.test(lower)) {
+   433→                return canonical;
+   434→            }
+   435→        }
+   436→    }
+   437→    return defaultVal;
+   438→}
+   439→
+   440→export function normalizeEducationLevel(raw) {
+   441→    return normalizeWithWordBoundaries(raw, EDUCATION_LEVEL_ENUMS, 'None');
+   442→}
+   443→
+   444→export function normalizeFunction(raw) {
+   445→    return normalizeWithWordBoundaries(raw, FUNCTION_ENUMS, 'Other');
+   446→}
+   447→
+   448→export function normalizeSector(raw) {
+   449→    return normalizeWithWordBoundaries(raw, SECTOR_ENUMS, 'Other');
+   450→}
+   451→
+   452→export function normalizeCandidate(rawJson) {
+   453→    if (!rawJson) return null;
+   454→    
+   455→    // Education is now an array
+   456→    if (rawJson.education && Array.isArray(rawJson.education)) {
+   457→        for (const edu of rawJson.education) {
+   458→            edu.level = normalizeEducationLevel(edu.level);
+   459→        }
+   460→    }
+   461→    
+   462→    // Normalize work experience clusters
+   463→    if (rawJson.work_experience) {
+   464→        for (const cluster of rawJson.work_experience) {
+   465→            cluster.function = normalizeFunction(cluster.function);
+   466→            
+   467→            // De-duplicate skills
+   468→            if (cluster.skills) {
+   469→                cluster.skills = [...new Set(cluster.skills.map(s => s.trim()))];
+   470→            }
+   471→        }
+   472→    }
+   473→    
+   474→    return rawJson;
+   475→}
+   476→
+   477→export function normalizeJob(rawJson) {
+   478→    if (!rawJson) return null;
+   479→    
+   480→    if (rawJson.job) {
+   481→        rawJson.job.sector = normalizeSector(rawJson.job.sector);
+   482→        rawJson.job.job_function = normalizeFunction(rawJson.job.job_function);
+   483→        if (rawJson.job.required_education) {
+   484→            rawJson.job.required_education.level = normalizeEducationLevel(
+   485→                rawJson.job.required_education.level
+   486→            );
+   487→        }
+   488→    }
+   489→    
+   490→    return rawJson;
+   491→}
+   492→```
+   493→
+   494→## 4.7 Field Relatedness Mapping
+   495→
+   496→```javascript
+   497→// lib/field-mapping.js
+   498→export const RELATED_FIELDS = {
+   499→    'business': ['commerce', 'business administration', 'marketing', 'finance', 'accounting', 'management'],
+   500→    'computing': ['computer science', 'it', 'information technology', 'software', 'data science', 'programming'],
+   501→    'engineering': ['mechanical engineering', 'civil engineering', 'electrical engineering', 'automotive engineering', 'structural engineering'],
+   502→    'health': ['medicine', 'nursing', 'clinical', 'pharmacy', 'public health', 'healthcare'],
+   503→    'education': ['teaching', 'training', 'curriculum', 'pedagogy', 'instruction'],
+   504→    'economics': ['econometrics', 'finance', 'statistics', 'actuarial science'],
+   505→    'law': ['legal', 'jurisprudence', 'advocacy', 'constitutional law'],
+   506→    'arts': ['humanities', 'social sciences', 'literature', 'history', 'sociology']
+   507→};
+   508→
+   509→export function isFieldRelated(candidateField, jobField) {
+   510→    if (!candidateField || !jobField) return false;
+   511→    const c = candidateField.toLowerCase().trim();
+   512→    const j = jobField.toLowerCase().trim();
+   513→    
+   514→    // Direct match
+   515→    if (c === j) return true;
+   516→    
+   517→    // Check if one contains the other (but avoid false positives)
+   518→    if (c.includes(j) || j.includes(c)) {
+   519→        // Only return true if the shorter string is at least 3 characters
+   520→        // and the match is at a word boundary
+   521→        const shorter = c.length <= j.length ? c : j;
+   522→        const longer = c.length > j.length ? c : j;
+   523→        if (shorter.length >= 3 && longer.includes(shorter)) {
+   524→            // Check if it's a word boundary match
+   525→            const regex = new RegExp(`\\b${shorter}\\b`, 'i');
+   526→            if (regex.test(longer)) return true;
+   527→        }
+   528→    }
+   529→    
+   530→    // Check related fields map
+   531→    for (const [key, related] of Object.entries(RELATED_FIELDS)) {
+   532→        const isCandidateRelated = related.some(r => c.includes(r) || r.includes(c));
+   533→        const isJobRelated = related.some(r => j.includes(r) || r.includes(j));
+   534→        if (isCandidateRelated && isJobRelated) return true;
+   535→    }
+   536→    
+   537→    return false;
+   538→}
+   539→```
+   540→
+   541→---
+   542→
+   543→# 5. LLM Extraction
+   544→
+   545→## 5.1 Technology Choice: LLM-Based Extraction
+   546→
+   547→**Why LLM over Regex?**
+   548→
+   549→| Challenge | Regex/NLP | LLM |
+   550→|-----------|-----------|-----|
+   551→| Messy formatting (tables, columns) | ❌ Breaks | ✅ Handles naturally |
+   552→| Inconsistent headers | ❌ Requires exhaustive rules | ✅ Understands context |
+   553→| Skills scattered across sections | ❌ Difficult to capture | ✅ Extracts from anywhere |
+   554→| Dates in various formats | ❌ Complex parsing | ✅ Standardizes output |
+   555→| Context understanding | ❌ Ambiguous | ✅ Infers correctly |
+   556→
+   557→**Recommended LLM:**
+   558→- **Gemini 1.5 Flash** or **GPT-4o-mini**
+   559→- Low cost (~$0.001 per CV)
+   560→- Fast processing (2-5 seconds)
+   561→- Large context windows (1M+ tokens)
+   562→
+   563→## 5.2 CV Extraction Prompt
+   564→
+   565→```
+   566→You are an expert CV parser. Extract structured information from the following Kenyan CV.
+   567→
+   568→Extract the following JSON structure:
+   569→
+   570→{
+   571→  "profile": {
+   572→    "full_name": "string",
+   573→    "phone": "string",
+   574→    "email": "string",
+   575→    "location": "string"
+   576→  },
+   577→  "education": [
+   578→    {
+   579→      "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+   580→      "field": "string",
+   581→      "institution": "string",
+   582→      "start_year": "YYYY",
+   583→      "end_year": "YYYY"
+   584→    }
+   585→  ],
+   586→  "work_experience": [
+   587→    {
+   588→      "function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+   589→      "job_titles": ["string"],
+   590→      "skills": ["string"],
+   591→      "years_experience": "number",
+   592→      "representative_company": "string (optional)"
+   593→    }
+   594→  ],
+   595→  "extras": {
+   596→    "certifications": [{"name": "string", "institution": "string", "year": "YYYY"}],
+   597→    "referees": [{"name": "string", "title": "string", "company": "string", "phone": "string", "email": "string"}],
+   598→    "languages": ["string"],
+   599→    "professional_memberships": ["string"],
+   600→    "trainings": [{"name": "string", "institution": "string", "year": "YYYY"}]
+   601→  }
+   602→}
+   603→
+   604→Instructions:
+   605→1. Group similar job experiences into clusters based on function
+   606→2. Extract hard skills only (e.g., "Microsoft Excel", "Bookkeeping", "Cisco")
+   607→3. DO NOT extract soft skills like "hardworking", "team player" unless explicitly listed as core competencies
+   608→4. Calculate years of experience for each cluster
+   609→5. DO NOT extract company sector/industry
+   610→6. DO NOT extract date of birth, nationality, or grade/class
+   611→7. DO NOT extract administrative requirements
+   612→8. If any field cannot be determined, use null
+   613→9. Output ONLY valid JSON
+   614→```
+   615→
+   616→## 5.3 Job Description Extraction Prompt
+   617→
+   618→```
+   619→You are an expert job description parser. Extract structured information from the following job posting.
+   620→
+   621→Extract the following JSON structure:
+   622→
+   623→{
+   624→  "job": {
+   625→    "title": "string",
+   626→    "company": "string",
+   627→    "sector": "string (Agriculture|Banking|Construction|Education|Energy|Finance|Government|Healthcare|Hospitality|Insurance|IT/Technology|Legal|Manufacturing|Media|NGO/Development|Real Estate|Retail|Telecommunications|Transport/Logistics|Other)",
+   628→    "job_function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+   629→    "location": "string",
+   630→    "job_type": "string (Full-time|Part-time|Contract|Internship)",
+   631→    "required_skills": ["string"],
+   632→    "required_education": {
+   633→      "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+   634→      "field": "string (or 'Any' if not specified)"
+   635→    },
+   636→    "required_experience_years": "number (0 if not specified)"
+   637→  }
+   638→}
+   639→
+   640→Instructions:
+   641→1. Sector should be inferred from the company type, or 'Other' if unknown
+   642→2. Job function should be inferred from the title and responsibilities
+   643→3. Required skills: Look for explicit requirements. Include software tools, certifications, and hard skills
+   644→4. For education: If "Any" or "Related field" mentioned, set field = "Any"
+   645→5. For experience: Convert "3+ years" to 3, "5-7 years" to the minimum (5)
+   646→6. DO NOT extract administrative requirements like license, age, nationality
+   647→7. Output ONLY valid JSON
+   648→```
+   649→
+   650→## 5.4 LLM Error Handling & Retry Logic
+   651→
+   652→```javascript
+   653→// lib/llm.js
+   654→import { GoogleGenerativeAI } from '@google/generative-ai';
+   655→
+   656→const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+   657→const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+   658→
+   659→async function parseWithRetry(prompt, maxRetries = 3) {
+   660→    let lastError = null;
+   661→    let attempt = 0;
+   662→    
+   663→    while (attempt < maxRetries) {
+   664→        try {
+   665→            const result = await model.generateContent(prompt);
+   666→            const response = await result.response;
+   667→            const jsonText = response.text();
+   668→            
+   669→            // Try to parse JSON
+   670→            const parsed = JSON.parse(jsonText);
+   671→            
+   672→            // Basic validation
+   673→            if (!parsed.profile?.full_name && attempt < 2) {
+   674→                throw new Error('Missing required field: full_name');
+   675→            }
+   676→            
+   677→            return parsed;
+   678→            
+   679→        } catch (error) {
+   680→            lastError = error;
+   681→            attempt++;
+   682→            console.warn(`LLM attempt ${attempt} failed:`, error.message);
+   683→            
+   684→            if (attempt < maxRetries) {
+   685→                await sleep(1000 * attempt); // Exponential backoff
+   686→            }
+   687→        }
+   688→    }
+   689→    
+   690→    // All retries failed - log for manual review
+   691→    await logFailedParsing(prompt, lastError);
+   692→    
+   693→    return {
+   694→        _error: true,
+   695→        _message: 'Failed to parse. Please review manually.',
+   696→        _raw_text: prompt.substring(0, 500) // Truncate for logging
+   697→    };
+   698→}
+   699→
+   700→function sleep(ms) {
+   701→    return new Promise(resolve => setTimeout(resolve, ms));
+   702→}
+   703→
+   704→async function logFailedParsing(text, error) {
+   705→    // Log to database for manual review
+   706→    await query(
+   707→        `INSERT INTO parse_failures (raw_text, error_message, created_at) 
+   708→         VALUES (?, ?, NOW())`,
+   709→        [text.substring(0, 10000), error.message]
+   710→    );
+   711→}
+   712→
+   713→export async function parseCV(text) {
+   714→    const prompt = `...`; // Full prompt from above
+   715→    return await parseWithRetry(prompt);
+   716→}
+   717→
+   718→export async function parseJD(text) {
+   719→    const prompt = `...`; // Full prompt from above
+   720→    return await parseWithRetry(prompt);
+   721→}
+   722→```
+   723→
+   724→---
+   725→
+   726→# 6. Matching Algorithm
+   727→
+   728→## 6.1 Core Principles
+   729→
+   730→| Principle | Implementation |
+   731→|-----------|----------------|
+   732→| **Inclusive** | Never hides jobs based on missing data |
+   733→| **Function-Based** | Primary match is on job function |
+   734→| **Ranked** | Best matches appear first |
+   735→| **Explainable** | Each match shows why it was recommended |
+   736→| **User-Controlled** | Only selected trajectories are matched |
+   737→| **Scalable** | Uses database indexing for efficient queries |
+   738→
+   739→## 6.2 Step-by-Step Logic
+   740→
+   741→### Step 1: Function Match (Gateway Filter)
+   742→
+   743→```javascript
+   744→// lib/matching.js
+   745→function isFunctionMatch(candidate, job) {
+   746→    // Only check selected clusters
+   747→    const activeClusters = candidate.work_experience.filter(c => c.selected);
+   748→    
+   749→    for (const cluster of activeClusters) {
+   750→        if (cluster.function.toLowerCase() === job.job_function.toLowerCase()) {
+   751→            return true;
+   752→        }
+   753→    }
+   754→    return false;
+   755→}
+   756→```
+   757→
+   758→**Outcome:**
+   759→- If **any** selected cluster matches → Show the job
+   760→- If **no** selected cluster matches → Hide the job
+   761→
+   762→### Step 2: Calculate Match Score (Ranking)
+   763→
+   764→```javascript
+   765→function calculateMatchScore(cluster, job, candidate) {
+   766→    let score = 0;
+   767→    
+   768→    // 1. Job Title Match (40 points)
+   769→    const jobTitleLower = job.title.toLowerCase();
+   770→    const hasExactMatch = cluster.job_titles.some(
+   771→        t => t.toLowerCase() === jobTitleLower
+   772→    );
+   773→    
+   774→    if (hasExactMatch) {
+   775→        score += 40;
+   776→    } else {
+   777→        // Partial match - check for keyword overlap
+   778→        const jobKeywords = new Set(job.title.toLowerCase().split(' '));
+   779→        const titleKeywords = new Set(
+   780→            cluster.job_titles.join(' ').toLowerCase().split(' ')
+   781→        );
+   782→        const overlap = [...jobKeywords].filter(k => titleKeywords.has(k));
+   783→        if (overlap.length > 0) {
+   784→            score += Math.min(20, overlap.length * 5);
+   785→        }
+   786→    }
+   787→    
+   788→    // 2. Skills Match (35 points)
+   789→    const matchedSkills = job.required_skills.filter(
+   790→        skill => cluster.skills.some(s => s.toLowerCase() === skill.toLowerCase())
+   791→    );
+   792→    
+   793→    if (job.required_skills.length > 0) {
+   794→        const skillPercentage = matchedSkills.length / job.required_skills.length;
+   795→        score += skillPercentage * 35;
+   796→    }
+   797→    
+   798→    // 3. Education Match (15 points)
+   799→    // Use highest education level from array
+   800→    const highestLevel = getHighestEducationLevel(candidate.education);
+   801→    if (job.required_education.level) {
+   802→        const eduScore = compareEducation(
+   803→            highestLevel,
+   804→            job.required_education.level
+   805→        );
+   806→        score += eduScore * 15;
+   807→        
+   808→        // Bonus for field relevance (5 points)
+   809→        if (job.required_education.field && 
+   810→            job.required_education.field !== "Any") {
+   811→            const isRelated = isFieldRelated(
+   812→                candidate.education[0]?.field,
+   813→                job.required_education.field
+   814→            );
+   815→            if (isRelated) score += 5;
+   816→        }
+   817→    }
+   818→    
+   819→    // 4. Experience Match (10 points)
+   820→    if (job.required_experience_years > 0) {
+   821→        const expRatio = Math.min(
+   822→            1.0,
+   823→            cluster.years_experience / job.required_experience_years
+   824→        );
+   825→        score += expRatio * 10;
+   826→    }
+   827→    
+   828→    return Math.round(score);
+   829→}
+   830→
+   831→function getHighestEducationLevel(educationArray) {
+   832→    const levels = ['None', 'Certificate', 'Diploma', 'Bachelor', 'Masters', 'PhD'];
+   833→    let highest = 'None';
+   834→    for (const edu of educationArray || []) {
+   835→        const idx = levels.indexOf(edu.level);
+   836→        const currentIdx = levels.indexOf(highest);
+   837→        if (idx > currentIdx) {
+   838→            highest = edu.level;
+   839→        }
+   840→    }
+   841→    return highest;
+   842→}
+   843→```
+   844→
+   845→### Step 3: Education Level Comparison
+   846→
+   847→```javascript
+   848→const EDUCATION_LEVELS = {
+   849→    'PhD': 5,
+   850→    'Masters': 4,
+   851→    'Bachelor': 3,
+   852→    'Diploma': 2,
+   853→    'Certificate': 1,
+   854→    'None': 0
+   855→};
+   856→
+   857→function compareEducation(candidateLevel, jobRequiredLevel) {
+   858→    const candidateValue = EDUCATION_LEVELS[candidateLevel] || 0;
+   859→    const requiredValue = EDUCATION_LEVELS[jobRequiredLevel] || 0;
+   860→    
+   861→    if (candidateValue >= requiredValue) {
+   862→        return 1.0;
+   863→    } else if (candidateValue === requiredValue - 1) {
+   864→        return 0.7;
+   865→    } else if (candidateValue === requiredValue - 2) {
+   866→        return 0.3;
+   867→    } else {
+   868→        return 0.0;
+   869→    }
+   870→}
+   871→```
+   872→
+   873→### Step 4: Generate Explanation
+   874→
+   875→```javascript
+   876→function generateExplanation(cluster, job) {
+   877→    const matchedSkills = job.required_skills.filter(
+   878→        skill => cluster.skills.some(s => s.toLowerCase() === skill.toLowerCase())
+   879→    );
+   880→    
+   881→    const sampleTitle = cluster.job_titles[0] || 'your experience';
+   882→    let explanation = `This job matches your experience as a ${sampleTitle}`;
+   883→    
+   884→    if (matchedSkills.length > 0) {
+   885→        const skillList = matchedSkills.slice(0, 3).join(', ');
+   886→        explanation += ` and your skills in ${skillList}`;
+   887→        if (matchedSkills.length > 3) {
+   888→            explanation += ` and ${matchedSkills.length - 3} other skills`;
+   889→        }
+   890→    }
+   891→    
+   892→    return explanation;
+   893→}
+   894→```
+   895→
+   896→### Step 5: Final Ranking with Scalable Query
+   897→
+   898→```javascript
+   899→async function rankJobsForCandidate(candidateId, jobId) {
+   900→    // Get candidate with their clusters
+   901→    const candidate = await getCandidateWithClusters(candidateId);
+   902→    const job = await getJob(jobId);
+   903→    
+   904→    // Only match if function exists
+   905→    const activeClusters = candidate.work_experience.filter(c => c.selected);
+   906→    let bestScore = 0;
+   907→    let bestCluster = null;
+   908→    
+   909→    for (const cluster of activeClusters) {
+   910→        if (cluster.function.toLowerCase() === job.job_function.toLowerCase()) {
+   911→            const score = calculateMatchScore(cluster, job, candidate);
+   912→            if (score > bestScore) {
+   913→                bestScore = score;
+   914→                bestCluster = cluster;
+   915→            }
+   916→        }
+   917→    }
+   918→    
+   919→    if (bestCluster) {
+   920→        return {
+   921→            candidate_id: candidateId,
+   922→            job_id: jobId,
+   923→            match_score: bestScore,
+   924→            matched_cluster_id: bestCluster.cluster_id,
+   925→            explanation: generateExplanation(bestCluster, job)
+   926→        };
+   927→    }
+   928→    
+   929→    return null;
+   930→}
+   931→```
+   932→
+   933→## 6.3 What We Match On vs What We Don't
+   934→
+   935→### ✅ MATCH ON:
+   936→
+   937→| Factor | Weight | Purpose |
+   938→|--------|--------|---------|
+   939→| **Function** | Required | Primary filter - job must match a candidate cluster |
+   940→| **Job Titles** | 40 points | Exact or partial title match |
+   941→| **Skills** | 35 points | Percentage of required skills present |
+   942→| **Education Level** | 15 points | Higher or equal to requirement |
+   943→| **Education Field** | 5 points (bonus) | Related field |
+   944→| **Experience Years** | 10 points | Years in matching cluster |
+   945→
+   946→### ❌ DO NOT MATCH ON:
+   947→
+   948→| Factor | Reason |
+   949→|--------|--------|
+   950→| **Driver's License** | Administrative requirement - candidate decides |
+   951→| **Age** | Not relevant for matching |
+   952→| **Nationality** | Not relevant for matching |
+   953→| **Languages** | Not relevant for matching |
+   954→| **Certifications** | Too varied, hard to standardize |
+   955→| **Referees** | Not relevant for matching |
+   956→| **Company Sector** | Too ambiguous to extract from CV |
+   957→| **Grade/Class** | Not relevant for matching |
+   958→| **Location** | Candidate decides if they want to relocate |
+   959→
+   960→---
+   961→
+   962→# 7. Database Schema
+   963→
+   964→## 7.1 MySQL Schema
+   965→
+   966→```sql
+   967→-- ============================================
+   968→-- CANDIDATES TABLE
+   969→-- ============================================
+   970→CREATE TABLE candidates (
+   971→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+   972→    full_name VARCHAR(255),
+   973→    phone VARCHAR(50),
+   974→    email VARCHAR(255) UNIQUE,
+   975→    location VARCHAR(255),
+   976→    
+   977→    -- Raw data
+   978→    raw_cv_text LONGTEXT,
+   979→    parsed_data JSON,  -- Full candidate JSON
+   980→    
+   981→    -- Authentication
+   982→    password_hash VARCHAR(255),
+   983→    auth_provider ENUM('email', 'google') DEFAULT 'email',
+   984→    auth_id VARCHAR(255),
+   985→    
+   986→    -- Timestamps
+   987→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   988→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   989→    
+   990→    INDEX idx_email (email)
+   991→);
+   992→
+   993→-- ============================================
+   994→-- CANDIDATE EDUCATION (Array)
+   995→-- ============================================
+   996→CREATE TABLE candidate_education (
+   997→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+   998→    candidate_id VARCHAR(36) NOT NULL,
+   999→    
+  1000→    level ENUM('PhD','Masters','Bachelor','Diploma','Certificate','None'),
+  1001→    field VARCHAR(255),
+  1002→    institution VARCHAR(255),
+  1003→    start_year INT,
+  1004→    end_year INT,
+  1005→    
+  1006→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1007→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  1008→    
+  1009→    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  1010→    INDEX idx_candidate (candidate_id),
+  1011→    INDEX idx_level (level)
+  1012→);
+  1013→
+  1014→-- ============================================
+  1015→-- CANDIDATE WORK EXPERIENCE (Clusters)
+  1016→-- ============================================
+  1017→CREATE TABLE candidate_clusters (
+  1018→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  1019→    candidate_id VARCHAR(36) NOT NULL,
+  1020→    
+  1021→    -- Normalized fields
+  1022→    function ENUM('Administration','Finance','IT','Engineering','Sales','Marketing','Healthcare','Education','Hospitality','Logistics','Legal','Customer Service','Operations','Human Resources','Other'),
+  1023→    job_titles JSON,  -- Array of strings
+  1024→    skills JSON,      -- Array of strings
+  1025→    years_experience DECIMAL(5,2),
+  1026→    representative_company VARCHAR(255),
+  1027→    
+  1028→    -- User selection
+  1029→    selected BOOLEAN DEFAULT TRUE,
+  1030→    
+  1031→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1032→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  1033→    
+  1034→    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  1035→    INDEX idx_candidate (candidate_id),
+  1036→    INDEX idx_function (function),
+  1037→    INDEX idx_selected (selected)
+  1038→);
+  1039→
+  1040→-- ============================================
+  1041→-- CANDIDATE EXTRAS (Resume Builder)
+  1042→-- ============================================
+  1043→CREATE TABLE candidate_extras (
+  1044→    candidate_id VARCHAR(36) PRIMARY KEY,
+  1045→    certifications JSON,
+  1046→    referees JSON,
+  1047→    languages JSON,
+  1048→    professional_memberships JSON,
+  1049→    trainings JSON,
+  1050→    
+  1051→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1052→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  1053→    
+  1054→    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
+  1055→);
+  1056→
+  1057→-- ============================================
+  1058→-- JOBS TABLE
+  1059→-- ============================================
+  1060→CREATE TABLE jobs (
+  1061→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  1062→    title VARCHAR(255),
+  1063→    company VARCHAR(255),
+  1064→    
+  1065→    -- Normalized fields
+  1066→    sector ENUM('Agriculture','Banking','Construction','Education','Energy','Finance','Government','Healthcare','Hospitality','Insurance','IT/Technology','Legal','Manufacturing','Media','NGO/Development','Real Estate','Retail','Telecommunications','Transport/Logistics','Other'),
+  1067→    job_function ENUM('Administration','Finance','IT','Engineering','Sales','Marketing','Healthcare','Education','Hospitality','Logistics','Legal','Customer Service','Operations','Human Resources','Other'),
+  1068→    
+  1069→    location VARCHAR(255),
+  1070→    job_type ENUM('Full-time','Part-time','Contract','Internship'),
+  1071→    
+  1072→    required_skills JSON,  -- Array of strings
+  1073→    required_education_level ENUM('PhD','Masters','Bachelor','Diploma','Certificate','None'),
+  1074→    required_education_field VARCHAR(255),
+  1075→    required_experience_years INT DEFAULT 0,
+  1076→    
+  1077→    description LONGTEXT,
+  1078→    application_deadline DATE,
+  1079→    posted_by VARCHAR(36),
+  1080→    
+  1081→    -- Raw data
+  1082→    raw_jd_text LONGTEXT,
+  1083→    parsed_data JSON,  -- Full job JSON
+  1084→    
+  1085→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1086→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  1087→    
+  1088→    INDEX idx_job_function (job_function),
+  1089→    INDEX idx_sector (sector),
+  1090→    INDEX idx_job_type (job_type),
+  1091→    INDEX idx_created_at (created_at)
+  1092→);
+  1093→
+  1094→-- ============================================
+  1095→-- JOB MATCHES (Pre-computed)
+  1096→-- ============================================
+  1097→CREATE TABLE job_matches (
+  1098→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  1099→    candidate_id VARCHAR(36) NOT NULL,
+  1100→    job_id VARCHAR(36) NOT NULL,
+  1101→    match_score INT,
+  1102→    matched_cluster_id VARCHAR(36),
+  1103→    explanation TEXT,
+  1104→    
+  1105→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1106→    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  1107→    
+  1108→    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  1109→    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+  1110→    FOREIGN KEY (matched_cluster_id) REFERENCES candidate_clusters(id) ON DELETE SET NULL,
+  1111→    
+  1112→    UNIQUE KEY unique_match (candidate_id, job_id),
+  1113→    INDEX idx_candidate (candidate_id),
+  1114→    INDEX idx_job (job_id),
+  1115→    INDEX idx_score (match_score DESC)
+  1116→);
+  1117→
+  1118→-- ============================================
+  1119→-- PARSE FAILURES (LLM Error Logging)
+  1120→-- ============================================
+  1121→CREATE TABLE parse_failures (
+  1122→    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  1123→    raw_text TEXT,
+  1124→    error_message TEXT,
+  1125→    resolved BOOLEAN DEFAULT FALSE,
+  1126→    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  1127→    
+  1128→    INDEX idx_resolved (resolved),
+  1129→    INDEX idx_created (created_at)
+  1130→);
+  1131→```
+  1132→
+  1133→---
+  1134→
+  1135→# 8. Tech Stack Recommendations
+  1136→
+  1137→## 8.1 Overview
+  1138→
+  1139→| Component | Technology | Reason |
+  1140→|-----------|-----------|--------|
+  1141→| **Frontend** | Next.js 15+ (React) | Full-stack framework, API routes, server components |
+  1142→| **Backend** | Next.js API Routes | Unified codebase, easy deployment |
+  1143→| **Database** | MySQL 8.0+ | Reliable, widely used, JSON support |
+  1144→| **ORM** | Prisma or Drizzle | Type-safe database access |
+  1145→| **LLM** | Gemini 1.5 Flash | Cheap ($0.001/call), fast, large context |
+  1146→| **Background Jobs** | Cron Jobs / GitHub Actions | Simple, reliable, no extra infra |
+  1147→| **Authentication** | NextAuth.js | Built for Next.js, OAuth support |
+  1148→| **Language** | TypeScript | Type safety, better DX |
+  1149→| **Testing** | Jest + React Testing Library | Unit and integration tests |
+  1150→| **Hosting** | Vercel / AWS | Scalable, easy deployment |
+  1151→
+  1152→## 8.2 Project Structure
+  1153→
+  1154→```
+  1155→project/
+  1156→├── app/
+  1157→│   ├── api/
+  1158→│   │   ├── auth/
+  1159→│   │   │   └── [...nextauth]/
+  1160→│   │   │       └── route.ts         # NextAuth.js setup
+  1161→│   │   ├── candidates/
+  1162→│   │   │   ├── route.ts             # POST - Upload CV
+  1163→│   │   │   └── [id]/
+  1164→│   │   │       ├── route.ts         # GET - Candidate details
+  1165→│   │   │       ├── matches/
+  1166→│   │   │       │   └── route.ts     # GET - Candidate matches
+  1167→│   │   │       └── trajectories/
+  1168→│   │   │           └── route.ts     # PUT - Update selections
+  1169→│   │   ├── jobs/
+  1170→│   │   │   ├── route.ts             # POST - Post job
+  1171→│   │   │   └── [id]/
+  1172→│   │   │       └── route.ts         # GET - Job details
+  1173→│   │   ├── match/
+  1174→│   │   │   └── route.ts             # POST - Trigger matching
+  1175→│   │   └── cron/
+  1176→│   │       └── matching/
+  1177→│   │           └── route.ts         # Cron endpoint
+  1178→│   ├── dashboard/
+  1179→│   │   ├── candidate/
+  1180→│   │   │   └── page.tsx             # Candidate dashboard
+  1181→│   │   └── admin/
+  1182→│   │       ├── page.tsx             # Admin dashboard
+  1183→│   │       └── jobs/
+  1184→│   │           └── new/
+  1185→│   │               └── page.tsx     # Post job page
+  1186→│   └── page.tsx                     # Landing page
+  1187→├── lib/
+  1188→│   ├── db.ts                        # Database connection
+  1189→│   ├── llm.ts                       # LLM integration
+  1190→│   ├── normalize.ts                 # Normalization helpers
+  1191→│   ├── matching.ts                  # Matching algorithm
+  1192→│   ├── enums.ts                     # Enum definitions
+  1193→│   └── field-mapping.ts             # Related fields mapping
+  1194→├── models/
+  1195→│   ├── Candidate.ts
+  1196→│   ├── Job.ts
+  1197→│   └── JobMatch.ts
+  1198→├── scripts/
+  1199→│   └── run-matching.ts              # Cron job script
+  1200→├── types/
+  1201→│   └── index.ts                     # TypeScript types
+  1202→├── middleware.ts                    # NextAuth middleware
+  1203→├── prisma/
+  1204→│   └── schema.prisma                # Prisma schema (optional)
+  1205→├── package.json
+  1206→├── tsconfig.json
+  1207→└── .env.local
+  1208→```
+  1209→
+  1210→## 8.3 Key Dependencies
+  1211→
+  1212→```json
+  1213→{
+  1214→  "dependencies": {
+  1215→    "next": "^15.0.0",
+  1216→    "react": "^18.0.0",
+  1217→    "react-dom": "^18.0.0",
+  1218→    "@prisma/client": "^5.0.0",
+  1219→    "next-auth": "^4.24.0",
+  1220→    "@google/generative-ai": "^1.0.0",
+  1221→    "pdf-parse": "^1.1.1",
+  1222→    "mammoth": "^1.6.0",
+  1223→    "zod": "^3.22.0",
+  1224→    "bcryptjs": "^2.4.3"
+  1225→  },
+  1226→  "devDependencies": {
+  1227→    "@types/node": "^20.0.0",
+  1228→    "@types/react": "^18.0.0",
+  1229→    "typescript": "^5.0.0",
+  1230→    "prisma": "^5.0.0",
+  1231→    "jest": "^29.0.0",
+  1232→    "@testing-library/react": "^14.0.0"
+  1233→  }
+  1234→}
+  1235→```
+  1236→
+  1237→## 8.4 Authentication Setup
+  1238→
+  1239→```typescript
+  1240→// app/api/auth/[...nextauth]/route.ts
+  1241→import NextAuth from 'next-auth';
+  1242→import Google from 'next-auth/providers/google';
+  1243→import Credentials from 'next-auth/providers/credentials';
+  1244→import { query } from '@/lib/db';
+  1245→import bcrypt from 'bcryptjs';
+  1246→
+  1247→export const authOptions = {
+  1248→    providers: [
+  1249→        Google({
+  1250→            clientId: process.env.GOOGLE_CLIENT_ID!,
+  1251→            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  1252→        }),
+  1253→        Credentials({
+  1254→            name: 'Email',
+  1255→            credentials: {
+  1256→                email: { label: 'Email', type: 'email' },
+  1257→                password: { label: 'Password', type: 'password' }
+  1258→            },
+  1259→            async authorize(credentials) {
+  1260→                const users = await query(
+  1261→                    'SELECT * FROM candidates WHERE email = ?',
+  1262→                    [credentials?.email]
+  1263→                );
+  1264→                const user = users[0];
+  1265→                if (user && await bcrypt.compare(credentials!.password, user.password_hash)) {
+  1266→                    return { id: user.id, name: user.full_name, email: user.email, role: 'candidate' };
+  1267→                }
+  1268→                return null;
+  1269→            }
+  1270→        })
+  1271→    ],
+  1272→    callbacks: {
+  1273→        async session({ session, token }) {
+  1274→            if (session.user) {
+  1275→                session.user.id = token.sub!;
+  1276→                session.user.role = token.role as string;
+  1277→            }
+  1278→            return session;
+  1279→        },
+  1280→        async jwt({ token, user }) {
+  1281→            if (user) {
+  1282→                token.role = (user as any).role || 'candidate';
+  1283→            }
+  1284→            return token;
+  1285→        }
+  1286→    },
+  1287→    pages: {
+  1288→        signIn: '/login',
+  1289→        signUp: '/register'
+  1290→    }
+  1291→};
+  1292→
+  1293→export const handler = NextAuth(authOptions);
+  1294→export { handler as GET, handler as POST };
+  1295→```
+  1296→
+  1297→```typescript
+  1298→// middleware.ts
+  1299→import { withAuth } from 'next-auth/middleware';
+  1300→import { NextResponse } from 'next/server';
+  1301→
+  1302→export default withAuth(
+  1303→    function middleware(req) {
+  1304→        const token = req.nextauth.token;
+  1305→        const path = req.nextUrl.pathname;
+  1306→        
+  1307→        // Admin routes protection
+  1308→        if (path.startsWith('/dashboard/admin') && token?.role !== 'admin') {
+  1309→            return NextResponse.redirect(new URL('/dashboard/candidate', req.url));
+  1310→        }
+  1311→        
+  1312→        return NextResponse.next();
+  1313→    },
+  1314→    {
+  1315→        callbacks: {
+  1316→            authorized: ({ token }) => !!token
+  1317→        }
+  1318→    }
+  1319→);
+  1320→
+  1321→export const config = {
+  1322→    matcher: ['/dashboard/:path*', '/api/protected/:path*']
+  1323→};
+  1324→```
+  1325→
+  1326→---
+  1327→
+  1328→# 9. API Endpoints
+  1329→
+  1330→## 9.1 Candidate APIs
+  1331→
+  1332→### POST /api/candidates
+  1333→**Upload and parse CV**
+  1334→
+  1335→```typescript
+  1336→// app/api/candidates/route.ts
+  1337→import { parseCV } from '@/lib/llm';
+  1338→import { normalizeCandidate } from '@/lib/normalize';
+  1339→import { query } from '@/lib/db';
+  1340→import { getServerSession } from 'next-auth';
+  1341→import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+  1342→
+  1343→export async function POST(request: Request) {
+  1344→    const session = await getServerSession(authOptions);
+  1345→    if (!session) {
+  1346→        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  1347→    }
+  1348→    
+  1349→    try {
+  1350→        const formData = await request.formData();
+  1351→        const file = formData.get('cv');
+  1352→        const text = await extractText(file);
+  1353→        
+  1354→        // LLM Parsing with retry
+  1355→        const rawJson = await parseCV(text);
+  1356→        if (!rawJson || rawJson._error) {
+  1357→            return Response.json({ 
+  1358→                error: 'Failed to parse CV',
+  1359→                details: rawJson?._message || 'Unknown error'
+  1360→            }, { status: 400 });
+  1361→        }
+  1362→        
+  1363→        // Normalization
+  1364→        const normalized = normalizeCandidate(rawJson);
+  1365→        
+  1366→        // Store candidate
+  1367→        const result = await query(
+  1368→            `INSERT INTO candidates (
+  1369→                full_name, phone, email, location,
+  1370→                raw_cv_text, parsed_data
+  1371→            ) VALUES (?, ?, ?, ?, ?, ?)`,
+  1372→            [
+  1373→                normalized.profile.full_name,
+  1374→                normalized.profile.phone,
+  1375→                normalized.profile.email,
+  1376→                normalized.profile.location,
+  1377→                text,
+  1378→                JSON.stringify(normalized)
+  1379→            ]
+  1380→        );
+  1381→        
+  1382→        const candidateId = result.insertId;
+  1383→        
+  1384→        // Store education (array)
+  1385→        for (const edu of normalized.education || []) {
+  1386→            await query(
+  1387→                `INSERT INTO candidate_education (
+  1388→                    candidate_id, level, field, institution,
+  1389→                    start_year, end_year
+  1390→                ) VALUES (?, ?, ?, ?, ?, ?)`,
+  1391→                [candidateId, edu.level, edu.field, edu.institution, edu.start_year, edu.end_year]
+  1392→            );
+  1393→        }
+  1394→        
+  1395→        // Store clusters
+  1396→        for (const cluster of normalized.work_experience || []) {
+  1397→            await query(
+  1398→                `INSERT INTO candidate_clusters (
+  1399→                    candidate_id, function, job_titles, skills,
+  1400→                    years_experience, representative_company, selected
+  1401→                ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  1402→                [
+  1403→                    candidateId,
+  1404→                    cluster.function,
+  1405→                    JSON.stringify(cluster.job_titles),
+  1406→                    JSON.stringify(cluster.skills),
+  1407→                    cluster.years_experience,
+  1408→                    cluster.representative_company,
+  1409→                    true
+  1410→                ]
+  1411→            );
+  1412→        }
+  1413→        
+  1414→        // Store extras
+  1415→        if (normalized.extras) {
+  1416→            await query(
+  1417→                `INSERT INTO candidate_extras (
+  1418→                    candidate_id, certifications, referees, languages,
+  1419→                    professional_memberships, trainings
+  1420→                ) VALUES (?, ?, ?, ?, ?, ?)`,
+  1421→                [
+  1422→                    candidateId,
+  1423→                    JSON.stringify(normalized.extras.certifications || []),
+  1424→                    JSON.stringify(normalized.extras.referees || []),
+  1425→                    JSON.stringify(normalized.extras.languages || []),
+  1426→                    JSON.stringify(normalized.extras.professional_memberships || []),
+  1427→                    JSON.stringify(normalized.extras.trainings || [])
+  1428→                ]
+  1429→            );
+  1430→        }
+  1431→        
+  1432→        // Trigger initial matching for this candidate against all jobs
+  1433→        await triggerMatchingForCandidate(candidateId);
+  1434→        
+  1435→        return Response.json({
+  1436→            success: true,
+  1437→            candidate_id: candidateId,
+  1438→            message: 'CV uploaded and parsed successfully'
+  1439→        });
+  1440→        
+  1441→    } catch (error) {
+  1442→        console.error('Error:', error);
+  1443→        return Response.json({ error: error.message }, { status: 500 });
+  1444→    }
+  1445→}
+  1446→```
+  1447→
+  1448→### GET /api/candidates/[id]/matches
+  1449→
+  1450→```typescript
+  1451→// app/api/candidates/[id]/matches/route.ts
+  1452→import { query } from '@/lib/db';
+  1453→import { getServerSession } from 'next-auth';
+  1454→import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+  1455→
+  1456→export async function GET(
+  1457→    request: Request,
+  1458→    { params }: { params: { id: string } }
+  1459→) {
+  1460→    const session = await getServerSession(authOptions);
+  1461→    if (!session || session.user.id !== params.id) {
+  1462→        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  1463→    }
+  1464→    
+  1465→    try {
+  1466→        const { id } = params;
+  1467→        
+  1468→        const matches = await query(
+  1469→            `SELECT 
+  1470→                j.id as job_id,
+  1471→                j.title,
+  1472→                j.company,
+  1473→                j.sector,
+  1474→                j.location,
+  1475→                j.job_type,
+  1476→                j.required_skills,
+  1477→                j.required_education_level,
+  1478→                j.required_experience_years,
+  1479→                jm.match_score,
+  1480→                jm.explanation,
+  1481→                jm.created_at as matched_at
+  1482→            FROM job_matches jm
+  1483→            JOIN jobs j ON jm.job_id = j.id
+  1484→            WHERE jm.candidate_id = ?
+  1485→            ORDER BY jm.match_score DESC
+  1486→            LIMIT 50`,
+  1487→            [id]
+  1488→        );
+  1489→        
+  1490→        return Response.json({
+  1491→            success: true,
+  1492→            matches
+  1493→        });
+  1494→        
+  1495→    } catch (error) {
+  1496→        return Response.json({ error: error.message }, { status: 500 });
+  1497→    }
+  1498→}
+  1499→```
+  1500→
+  1501→### PUT /api/candidates/[id]/trajectories
+  1502→
+  1503→```typescript
+  1504→// app/api/candidates/[id]/trajectories/route.ts
+  1505→import { query } from '@/lib/db';
+  1506→import { getServerSession } from 'next-auth';
+  1507→import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+  1508→import { triggerMatchingForCandidate } from '@/lib/matching';
+  1509→
+  1510→export async function PUT(
+  1511→    request: Request,
+  1512→    { params }: { params: { id: string } }
+  1513→) {
+  1514→    const session = await getServerSession(authOptions);
+  1515→    if (!session || session.user.id !== params.id) {
+  1516→        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  1517→    }
+  1518→    
+  1519→    try {
+  1520→        const { selected_clusters } = await request.json();
+  1521→        
+  1522→        // Validate max 3 selections
+  1523→        if (selected_clusters.length > 3) {
+  1524→            return Response.json({ 
+  1525→                error: 'You can select a maximum of 3 trajectories' 
+  1526→            }, { status: 400 });
+  1527→        }
+  1528→        
+  1529→        // Reset all selections
+  1530→        await query(
+  1531→            `UPDATE candidate_clusters 
+  1532→             SET selected = FALSE 
+  1533→             WHERE candidate_id = ?`,
+  1534→            [params.id]
+  1535→        );
+  1536→        
+  1537→        // Set selected ones
+  1538→        if (selected_clusters.length > 0) {
+  1539→            await query(
+  1540→                `UPDATE candidate_clusters 
+  1541→                 SET selected = TRUE 
+  1542→                 WHERE id IN (?) AND candidate_id = ?`,
+  1543→                [selected_clusters, params.id]
+  1544→            );
+  1545→        }
+  1546→        
+  1547→        // Trigger re-matching with updated preferences
+  1548→        await triggerMatchingForCandidate(params.id);
+  1549→        
+  1550→        return Response.json({
+  1551→            success: true,
+  1552→            message: 'Trajectories updated successfully'
+  1553→        });
+  1554→        
+  1555→    } catch (error) {
+  1556→        return Response.json({ error: error.message }, { status: 500 });
+  1557→    }
+  1558→}
+  1559→```
+  1560→
+  1561→## 9.2 Job APIs
+  1562→
+  1563→### POST /api/jobs
+  1564→
+  1565→```typescript
+  1566→// app/api/jobs/route.ts
+  1567→import { parseJD } from '@/lib/llm';
+  1568→import { normalizeJob } from '@/lib/normalize';
+  1569→import { query } from '@/lib/db';
+  1570→import { getServerSession } from 'next-auth';
+  1571→import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+  1572→import { triggerMatchingForJob } from '@/lib/matching';
+  1573→
+  1574→export async function POST(request: Request) {
+  1575→    const session = await getServerSession(authOptions);
+  1576→    if (session?.user?.role !== 'admin') {
+  1577→        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  1578→    }
+  1579→    
+  1580→    try {
+  1581→        const body = await request.json();
+  1582→        const { input_type, data } = body;
+  1583→        
+  1584→        let normalizedData = null;
+  1585→        let rawJdText = null;
+  1586→        
+  1587→        switch (input_type) {
+  1588→            case 'paste':
+  1589→                // Raw JD text → LLM extraction
+  1590→                rawJdText = data;
+  1591→                const llmResult = await parseJD(data);
+  1592→                if (llmResult._error) {
+  1593→                    return Response.json({ 
+  1594→                        error: 'Failed to parse job description',
+  1595→                        details: llmResult._message
+  1596→                    }, { status: 400 });
+  1597→                }
+  1598→                normalizedData = normalizeJob(llmResult);
+  1599→                break;
+  1600→                
+  1601→            case 'upload':
+  1602→                // File upload → extract text → LLM
+  1603→                const file = data.file;
+  1604→                const extractedText = await extractText(file);
+  1605→                rawJdText = extractedText;
+  1606→                const llmResult2 = await parseJD(extractedText);
+  1607→                if (llmResult2._error) {
+  1608→                    return Response.json({ 
+  1609→                        error: 'Failed to parse job description',
+  1610→                        details: llmResult2._message
+  1611→                    }, { status: 400 });
+  1612→                }
+  1613→                normalizedData = normalizeJob(llmResult2);
+  1614→                break;
+  1615→                
+  1616→            case 'json':
+  1617→                // Already structured JSON → validate → use directly
+  1618→                try {
+  1619→                    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+  1620→                    // Validate schema
+  1621→                    validateJobSchema(parsed);
+  1622→                    normalizedData = normalizeJob(parsed);
+  1623→                } catch (e) {
+  1624→                    return Response.json({ error: 'Invalid JSON format' }, { status: 400 });
+  1625→                }
+  1626→                break;
+  1627→                
+  1628→            case 'form':
+  1629→                // Already structured from form fields
+  1630→                normalizedData = normalizeJob({ job: data });
+  1631→                break;
+  1632→                
+  1633→            default:
+  1634→                return Response.json({ error: 'Invalid input type' }, { status: 400 });
+  1635→        }
+  1636→        
+  1637→        // Store job
+  1638→        const result = await query(
+  1639→            `INSERT INTO jobs (
+  1640→                title, company, sector, job_function,
+  1641→                location, job_type, required_skills,
+  1642→                required_education_level, required_education_field,
+  1643→                required_experience_years, description,
+  1644→                application_deadline, posted_by, raw_jd_text, parsed_data
+  1645→            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  1646→            [
+  1647→                normalizedData.job.title,
+  1648→                normalizedData.job.company,
+  1649→                normalizedData.job.sector,
+  1650→                normalizedData.job.job_function,
+  1651→                normalizedData.job.location,
+  1652→                normalizedData.job.job_type,
+  1653→                JSON.stringify(normalizedData.job.required_skills || []),
+  1654→                normalizedData.job.required_education?.level || 'None',
+  1655→                normalizedData.job.required_education?.field || 'Any',
+  1656→                normalizedData.job.required_experience_years || 0,
+  1657→                data.description || '',
+  1658→                data.application_deadline || null,
+  1659→                session.user.id,
+  1660→                rawJdText,
+  1661→                JSON.stringify(normalizedData)
+  1662→            ]
+  1663→        );
+  1664→        
+  1665→        const jobId = result.insertId;
+  1666→        
+  1667→        // Trigger background matching for this job
+  1668→        await triggerMatchingForJob(jobId);
+  1669→        
+  1670→        return Response.json({
+  1671→            success: true,
+  1672→            job_id: jobId,
+  1673→            message: 'Job posted successfully'
+  1674→        });
+  1675→        
+  1676→    } catch (error) {
+  1677→        console.error('Error:', error);
+  1678→        return Response.json({ error: error.message }, { status: 500 });
+  1679→    }
+  1680→}
+  1681→```
+  1682→
+  1683→### GET /api/jobs/[id]
+  1684→
+  1685→```typescript
+  1686→// app/api/jobs/[id]/route.ts
+  1687→import { query } from '@/lib/db';
+  1688→
+  1689→export async function GET(
+  1690→    request: Request,
+  1691→    { params }: { params: { id: string } }
+  1692→) {
+  1693→    try {
+  1694→        const job = await query(
+  1695→            `SELECT * FROM jobs WHERE id = ?`,
+  1696→            [params.id]
+  1697→        );
+  1698→        
+  1699→        if (job.length === 0) {
+  1700→            return Response.json({ error: 'Job not found' }, { status: 404 });
+  1701→        }
+  1702→        
+  1703→        return Response.json({
+  1704→            success: true,
+  1705→            job: job[0]
+  1706→        });
+  1707→        
+  1708→    } catch (error) {
+  1709→        return Response.json({ error: error.message }, { status: 500 });
+  1710→    }
+  1711→}
+  1712→```
+  1713→
+  1714→---
+  1715→
+  1716→# 10. User Interface Flows
+  1717→
+  1718→## 10.1 Candidate Onboarding: Trajectory Selection
+  1719→
+  1720→```
+  1721→┌─────────────────────────────────────────────────────────────────────┐
+  1722→│  We've Analyzed Your CV!                                          │
+  1723→│                                                                     │
+  1724→│  We found these work experiences:                                 │
+  1725→│                                                                     │
+  1726→│  ┌─────────────────────────────────────────────────────────────┐   │
+  1727→│  │  ☑ Trajectory 1: Administration (3.5 years)                │   │
+  1728→│  │     Roles: Admin Assistant, Office Administrator           │   │
+  1729→│  │     Skills: Filing, Scheduling, Customer Service           │   │
+  1730→│  │     Company: Amunga & Sons Ltd                             │   │
+  1731→│  ├─────────────────────────────────────────────────────────────┤   │
+  1732→│  │  ☑ Trajectory 2: Finance (2.0 years)                      │   │
+  1733→│  │     Roles: Accounts Assistant, Bookkeeper                  │   │
+  1734→│  │     Skills: Bookkeeping, Reconciliation, QuickBooks        │   │
+  1735→│  │     Company: KCB Bank                                      │   │
+  1736→│  ├─────────────────────────────────────────────────────────────┤   │
+  1737→│  │  ☑ Trajectory 3: Sales (1.5 years)                        │   │
+  1738→│  │     Roles: Cashier, Sales Associate                        │   │
+  1739→│  │     Skills: POS, Cash Handling, Sales                      │   │
+  1740→│  │     Company: Naivas Supermarket                            │   │
+  1741→│  └─────────────────────────────────────────────────────────────┘   │
+  1742→│                                                                     │
+  1743→│  Select up to 3 trajectories you want to focus on:                 │
+  1744→│  (You can change this anytime)                                     │
+  1745→│                                                                     │
+  1746→│  [Save Preferences]  [Skip for Now]                                │
+  1747→└─────────────────────────────────────────────────────────────────────┘
+  1748→```
+  1749→
+  1750→## 10.2 Candidate Dashboard
+  1751→
+  1752→```
+  1753→┌─────────────────────────────────────────────────────────────────────┐
+  1754→│  Welcome, John Mwangi!                                             │
+  1755→│                                                                     │
+  1756→│  Your Focus Areas: Administration, Finance, Sales                  │
+  1757→│  [Change Focus Areas]                                              │
+  1758→│                                                                     │
+  1759→│  ┌─────────────────────────────────────────────────────────────┐   │
+  1760→│  │  Your Matches (15 jobs)                          [Filter ▼] │   │
+  1761→│  ├─────────────────────────────────────────────────────────────┤   │
+  1762→│  │                                                             │   │
+  1763→│  │  ★ Admin Assistant - Aga Khan Hospital                    │   │
+  1764→│  │    Match: 92% • Sector: Healthcare                        │   │
+  1765→│  │    📍 Nairobi (You are in Nairobi)                        │   │
+  1766→│  │    Matches your Admin Assistant experience                │   │
+  1767→│  │    Skills: Filing, Scheduling, Customer Service           │   │
+  1768→│  │    [Apply Now]  [Save]                                    │   │
+  1769→│  │                                                             │   │
+  1770→│  │  ★ Office Administrator - KCB Bank                       │   │
+  1771→│  │    Match: 85% • Sector: Banking                          │   │
+  1772→│  │    📍 Mombasa (You are in Nairobi - 480km away)          │   │
+  1773→│  │    Matches your Office Administrator experience          │   │
+  1774→│  │    Skills: MS Office, Scheduling, Records Mgmt           │   │
+  1775→│  │    [Apply Now]  [Save]                                    │   │
+  1776→│  │                                                             │   │
+  1777→│  │  ★ Accounts Assistant - Safaricom                        │   │
+  1778→│  │    Match: 78% • Sector: Telecom                          │   │
+  1779→│  │    📍 Nairobi (You are in Nairobi)                        │   │
+  1780→│  │    Matches your Accounts Assistant experience            │   │
+  1781→│  │    Skills: Bookkeeping, Reconciliation, QuickBooks       │   │
+  1782→│  │    [Apply Now]  [Save]                                    │   │
+  1783→│  │                                                             │   │
+  1784→│  └─────────────────────────────────────────────────────────────┘   │
+  1785→│                                                                     │
+  1786→│  My Profile | My Applications | Job Feed                           │
+  1787→└─────────────────────────────────────────────────────────────────────┘
+  1788→```
+  1789→
+  1790→## 10.3 Admin Job Posting
+  1791→
+  1792→```
+  1793→┌─────────────────────────────────────────────────────────────────────┐
+  1794→│  Post a New Job                                                    │
+  1795→│                                                                     │
+  1796→│  How do you want to create this job?                               │
+  1797→│                                                                     │
+  1798→│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ │
+  1799→│  │  📝 Paste JD  │  │  📄 Upload    │  │  📋 Paste JSON│  │  ✏️ Fill     │ │
+  1800→│  │  Text         │  │  File         │  │  (Power User) │  │  Form       │ │
+  1801→│  └───────────────┘  └───────────────┘  └───────────────┘  └─────────────┘ │
+  1802→│                                                                             │
+  1803→│  ┌─────────────────────────────────────────────────────────────────────┐   │
+  1804→│  │  [Paste your job description here...]                              │   │
+  1805→│  │                                                                     │   │
+  1806→│  │  Or upload a file: [Choose File]                                   │   │
+  1807→│  │                                                                     │   │
+  1808→│  │  Or paste JSON:                                                    │   │
+  1809→│  │  { "title": "Sales Van Representative", ... }                      │   │
+  1810→│  └─────────────────────────────────────────────────────────────────────┘   │
+  1811→│                                                                             │
+  1812→│  [  Auto-Extract  ]  [  Continue  ]                                       │
+  1813→│                                                                             │
+  1814→│  ─────────────────────────────────────────────────────────────────────────── │
+  1815→│                                                                             │
+  1816→│  Job Title:    [Sales Van Representative     ]                            │
+  1817→│  Company:      [HCS Affiliates Group         ]                            │
+  1818→│  Sector:       [Telecommunications ▼]                                     │
+  1819→│  Job Function: [Sales ▼]                                                  │
+  1820→│  Location:     [North Rift, Kenya           ]                            │
+  1821→│  Job Type:     [Full-time ▼]                                              │
+  1822→│                                                                             │
+  1823→│  Required Skills:                                                          │
+  1824→│  [Sales] [Merchandising] [Negotiation] [Customer Focus] [+ Add]          │
+  1825→│                                                                             │
+  1826→│  Required Education:                                                       │
+  1827→│  Level: [Diploma ▼]    Field: [Business ]                                 │
+  1828→│                                                                             │
+  1829→│  Minimum Experience: [1] years                                            │
+  1830→│                                                                             │
+  1831→│  [Preview Job]  [Post Job]                                                │
+  1832→└─────────────────────────────────────────────────────────────────────┘
+  1833→```
+  1834→
+  1835→---
+  1836→
+  1837→# 11. Background Jobs
+  1838→
+  1839→## 11.1 Matching Cron Job
+  1840→
+  1841→### Option A: GitHub Actions (Recommended)
+  1842→
+  1843→```yaml
+  1844→# .github/workflows/matching.yml
+  1845→name: Run Matching
+  1846→
+  1847→on:
+  1848→  schedule:
+  1849→    - cron: '*/5 * * * *'  # Every 5 minutes
+  1850→  workflow_dispatch:  # Manual trigger
+  1851→
+  1852→jobs:
+  1853→  run-matching:
+  1854→    runs-on: ubuntu-latest
+  1855→    steps:
+  1856→      - uses: actions/checkout@v3
+  1857→      - name: Setup Node.js
+  1858→        uses: actions/setup-node@v3
+  1859→        with:
+  1860→          node-version: '20'
+  1861→      - name: Install dependencies
+  1862→        run: npm install
+  1863→      - name: Run matching
+  1864→        run: npx prisma generate && npx ts-node scripts/run-matching.ts
+  1865→        env:
+  1866→          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  1867→          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+  1868→```
+  1869→
+  1870→### Option B: Vercel Cron Jobs
+  1871→
+  1872→```typescript
+  1873→// app/api/cron/matching/route.ts
+  1874→import { runMatching } from '@/lib/matching';
+  1875→
+  1876→export async function GET(request: Request) {
+  1877→    // Verify cron secret
+  1878→    const authHeader = request.headers.get('authorization');
+  1879→    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  1880→        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  1881→    }
+  1882→    
+  1883→    try {
+  1884→        const result = await runMatching();
+  1885→        return Response.json({ success: true, result });
+  1886→    } catch (error) {
+  1887→        console.error('Cron job failed:', error);
+  1888→        return Response.json({ error: error.message }, { status: 500 });
+  1889→    }
+  1890→}
+  1891→```
+  1892→
+  1893→### Matching Script with Scalable Query
+  1894→
+  1895→```typescript
+  1896→// scripts/run-matching.ts
+  1897→import { query } from '../lib/db';
+  1898→import { rankJobsForCandidate } from '../lib/matching';
+  1899→
+  1900→async function runMatching() {
+  1901→    console.log('🔄 Starting matching job...');
+  1902→    
+  1903→    // Get jobs posted in the last hour (incremental)
+  1904→    const jobs = await query(
+  1905→        `SELECT * FROM jobs 
+  1906→         WHERE created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+  1907→         ORDER BY created_at DESC`
+  1908→    );
+  1909→    
+  1910→    if (jobs.length === 0) {
+  1911→        console.log('No new jobs to match');
+  1912→        return { processed: 0, matches: 0 };
+  1913→    }
+  1914→    
+  1915→    console.log(`📋 Found ${jobs.length} new job(s) to match`);
+  1916→    let totalMatches = 0;
+  1917→    
+  1918→    for (const job of jobs) {
+  1919→        console.log(`  🔍 Matching job: ${job.title} (${job.job_function})`);
+  1920→        
+  1921→        // SCALABLE: Only get candidates with matching function
+  1922→        const candidates = await query(
+  1923→            `SELECT DISTINCT c.* 
+  1924→             FROM candidates c
+  1925→             JOIN candidate_clusters cc ON c.id = cc.candidate_id
+  1926→             WHERE cc.function = ? 
+  1927→               AND cc.selected = TRUE
+  1928→             ORDER BY c.created_at DESC`,
+  1929→            [job.job_function]
+  1930→        );
+  1931→        
+  1932→        console.log(`    Found ${candidates.length} candidates with matching function`);
+  1933→        
+  1934→        for (const candidate of candidates) {
+  1935→            // Get candidate clusters
+  1936→            const clusters = await query(
+  1937→                `SELECT * FROM candidate_clusters 
+  1938→                 WHERE candidate_id = ? AND selected = TRUE`,
+  1939→                [candidate.id]
+  1940→            );
+  1941→            
+  1942→            const candidateWithClusters = {
+  1943→                ...candidate,
+  1944→                work_experience: clusters,
+  1945→                education: await query(
+  1946→                    `SELECT * FROM candidate_education 
+  1947→                     WHERE candidate_id = ?`,
+  1948→                    [candidate.id]
+  1949→                )
+  1950→            };
+  1951→            
+  1952→            // Calculate match
+  1953→            const match = await rankJobsForCandidate(
+  1954→                candidate.id,
+  1955→                job.id,
+  1956→                candidateWithClusters
+  1957→            );
+  1958→            
+  1959→            if (match) {
+  1960→                await query(
+  1961→                    `INSERT INTO job_matches (
+  1962→                        candidate_id, job_id, match_score,
+  1963→                        matched_cluster_id, explanation
+  1964→                    ) VALUES (?, ?, ?, ?, ?)
+  1965→                    ON DUPLICATE KEY UPDATE
+  1966→                        match_score = VALUES(match_score),
+  1967→                        explanation = VALUES(explanation),
+  1968→                        updated_at = CURRENT_TIMESTAMP`,
+  1969→                    [
+  1970→                        candidate.id,
+  1971→                        job.id,
+  1972→                        match.match_score,
+  1973→                        match.matched_cluster_id,
+  1974→                        match.explanation
+  1975→                    ]
+  1976→                );
+  1977→                totalMatches++;
+  1978→            }
+  1979→        }
+  1980→    }
+  1981→    
+  1982→    console.log(`✅ Matching completed: ${totalMatches} matches created/updated`);
+  1983→    return { processed: jobs.length, matches: totalMatches };
+  1984→}
+  1985→
+  1986→// Run if called directly
+  1987→if (require.main === module) {
+  1988→    runMatching()
+  1989→        .then(() => process.exit(0))
+  1990→        .catch((error) => {
+  1991→            console.error('❌ Fatal error:', error);
+  1992→            process.exit(1);
+  1993→        });
+  1994→}
+  1995→
+  1996→export { runMatching };
+  1997→```
+  1998→
+  1999→---
+  2000→
+
+[showing lines 1-2000 of 2123; use offset=2001 with limit to continue reading]
