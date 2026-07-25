@@ -1,0 +1,1988 @@
+# Job Matching Platform - Technical Documentation
+
+## Version 3.0 | May 2026
+
+---
+
+# Table of Contents
+
+1. [Platform Philosophy](#1-platform-philosophy)
+2. [System Architecture](#2-system-architecture)
+3. [Data Schemas](#3-data-schemas)
+4. [Data Normalization & Enums](#4-data-normalization--enums)
+5. [LLM Extraction](#5-llm-extraction)
+6. [Matching Algorithm](#6-matching-algorithm)
+7. [Database Schema](#7-database-schema)
+8. [Tech Stack Recommendations](#8-tech-stack-recommendations)
+9. [API Endpoints](#9-api-endpoints)
+10. [User Interface Flows](#10-user-interface-flows)
+11. [Background Jobs](#11-background-jobs)
+12. [Implementation Roadmap](#12-implementation-roadmap)
+
+---
+
+# 1. Platform Philosophy
+
+## Core Principle: Candidate Empowerment, Not Disqualification
+
+Our platform is designed to **open doors** for job seekers, not close them.
+
+### The Kenyan Reality:
+- A graduate may work multiple jobs for survival
+- A BCom graduate might be: Cashier (Today) → Teller (Next Year) → Auditor (Following Year)
+- Job seekers have **multiple professional identities**, not one fixed career path
+
+### What We Do:
+- Acknowledge all work experiences as valid
+- Present jobs that match **ANY** of the candidate's experiences
+- Allow candidates to choose up to **3 career trajectories** to focus on
+- Never disqualify candidates based on missing constraints
+- Let candidates decide if they meet administrative requirements (e.g., driving license, age)
+- Rank jobs so best matches appear first, but all matching jobs are visible
+
+### What We Don't Do:
+- Penalize candidates for having unknown employers
+- Lock candidates into a single career path
+- Use hard filters that reject candidates
+- Extract or rely on ambiguous data like company sector from CVs
+- Match on administrative requirements (license, age, nationality, languages)
+- Force candidates into rigid career categories
+
+---
+
+# 2. System Architecture
+
+## 2.1 The "Extract Once, Compute Many" Approach
+
+**Key Decision:** LLM fires **ONCE** for CV parsing and **ONCE** for JD parsing. All matching happens in the database/backend using structured data.
+
+### Why This Approach:
+
+| Factor | Traditional (LLM Every Time) | Our Approach (Extract Once) |
+|--------|------------------------------|------------------------------|
+| **Cost** | $0.001 per match | $0.001 per upload + $0 for matches |
+| **Speed** | Slow (LLM latency) | Instant (DB query) |
+| **Scalability** | Linear cost scaling | Fixed cost per upload |
+| **Accuracy** | Inconsistent (LLM varies) | Deterministic (math) |
+
+### Architecture Flow Diagram:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           USER UPLOADS CV                                   │
+│              (PDF/DOCX/Paste/Fill Form)                                    │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+                        ┌─────────────────┐
+                        │  Text Extract   │ (PyPDF2, docx, etc.)
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │  LLM (1st Fire) │ (Costs ~$0.001)
+                        │  Parse to JSON  │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   Normalize     │ (Clean up strings, standardize dates)
+                        │   & Store       │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   MySQL         │ (Structured JSON stored)
+                        └────────┬────────┘
+                                 │
+                                 │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           ADMIN POSTS JOB                                  │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+                        ┌─────────────────┐
+                        │  Text Extract   │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │  LLM (2nd Fire) │ (Costs ~$0.001)
+                        │  Parse to JSON  │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   Normalize     │
+                        │   & Store       │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │   MySQL         │ (Structured JSON stored)
+                        └────────┬────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  BACKGROUND MATCHING (NO LLM INVOLVED)                    │
+│                                                                           │
+│  1. Cron Job runs every 5 minutes                                         │
+│  2. Query DB: Find candidates where Function matches                      │
+│  3. Calculate Score: Skills + Education + Experience                     │
+│  4. Save Match Result to job_matches table                               │
+│  5. Cost: ZERO USD                                                        │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CANDIDATE DASHBOARD LOADS                              │
+│                                                                           │
+│   "SELECT * FROM job_matches WHERE candidate_id = X ORDER BY score DESC"  │
+│   (Instant display, no LLM waiting time)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 3. Data Schemas
+
+## 3.1 Candidate Schema (Stored in Database)
+
+### Core Fields (Used for Matching)
+
+```json
+{
+  "candidate_id": "cand_12345",
+  
+  "profile": {
+    "full_name": "John Mwangi",
+    "phone": "+254712345678",
+    "email": "john.mwangi@gmail.com",
+    "location": "Nairobi, Kenya"
+  },
+  
+  "education": {
+    "level": "Bachelor",        // Enum: PhD|Masters|Bachelor|Diploma|Certificate|None
+    "field": "Commerce",
+    "institution": "University of Nairobi",
+    "start_year": 2019,
+    "end_year": 2022
+  },
+  
+  "work_experience": [
+    {
+      "cluster_id": "exp_001",
+      "function": "Administration",      // Enum from FUNCTION_ENUMS
+      "job_titles": ["Admin Assistant", "Office Administrator"],
+      "skills": ["Filing", "Scheduling", "Customer Service", "MS Office"],
+      "years_experience": 3.5,
+      "representative_company": "Amunga & Sons Ltd",
+      "selected": true                   // User selected this trajectory
+    },
+    {
+      "cluster_id": "exp_002",
+      "function": "Finance",
+      "job_titles": ["Accounts Assistant", "Bookkeeper"],
+      "skills": ["Bookkeeping", "Reconciliation", "QuickBooks"],
+      "years_experience": 2.0,
+      "representative_company": "KCB Bank",
+      "selected": false                  // User did NOT select this trajectory
+    },
+    {
+      "cluster_id": "exp_003",
+      "function": "Sales",
+      "job_titles": ["Cashier", "Sales Associate"],
+      "skills": ["POS", "Cash Handling", "Sales"],
+      "years_experience": 1.5,
+      "representative_company": "Naivas Supermarket",
+      "selected": false                  // User did NOT select this trajectory
+    }
+  ],
+  
+  "created_at": "2026-04-25T10:00:00Z",
+  "updated_at": "2026-04-25T10:00:00Z"
+}
+```
+
+### Field Definitions:
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `profile.full_name` | String | Candidate's full name | "John Mwangi" |
+| `profile.phone` | String | Phone number | "+254712345678" |
+| `profile.email` | String | Email address | "john@gmail.com" |
+| `profile.location` | String | Current location | "Nairobi, Kenya" |
+| `education.level` | Enum | Highest education level | "Bachelor" |
+| `education.field` | String | Field of study | "Commerce" |
+| `education.institution` | String | Institution name | "University of Nairobi" |
+| `education.start_year` | Integer | Start year | 2019 |
+| `education.end_year` | Integer | End year | 2022 |
+| `work_experience[].function` | Enum | Broad career function | "Administration" |
+| `work_experience[].job_titles` | Array | Actual role titles | ["Admin Assistant"] |
+| `work_experience[].skills` | Array | Hard skills | ["Filing", "Scheduling"] |
+| `work_experience[].years_experience` | Float | Years in this cluster | 3.5 |
+| `work_experience[].representative_company` | String | Company name (for display) | "Amunga & Sons Ltd" |
+| `work_experience[].selected` | Boolean | User-selected trajectory | true |
+
+---
+
+## 3.2 Extra Fields (Stored for Resume Builder, NOT Used for Matching)
+
+```json
+{
+  "extras": {
+    "certifications": [
+      {
+        "name": "CPA Part 1",
+        "institution": "ICPAK",
+        "year": 2021
+      }
+    ],
+    "referees": [
+      {
+        "name": "John Okanga",
+        "title": "CEO",
+        "company": "TAABCO Research",
+        "phone": "+254722389941",
+        "email": "jokanga@taabco.org"
+      }
+    ],
+    "languages": ["English", "Kiswahili"],
+    "professional_memberships": ["KISM"],
+    "trainings": [
+      {
+        "name": "Leadership Training",
+        "institution": "USAID",
+        "year": 2015
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 3.3 Job Schema (Stored in Database)
+
+### Core Fields (Used for Matching)
+
+```json
+{
+  "job_id": "job_67890",
+  
+  "job": {
+    "title": "Admin Assistant",
+    "company": "Aga Khan Hospital",
+    "sector": "Healthcare",                    // Enum from SECTOR_ENUMS
+    "job_function": "Administration",          // Enum from FUNCTION_ENUMS
+    "location": "Nairobi, Kenya",
+    "job_type": "Full-time",                  // Full-time|Part-time|Contract|Internship
+    
+    "required_skills": [
+      "Filing",
+      "Scheduling", 
+      "Customer Service",
+      "MS Office"
+    ],
+    
+    "required_education": {
+      "level": "Diploma",                     // Enum from EDUCATION_LEVEL_ENUMS
+      "field": "Business Administration",
+      "is_flexible": true
+    },
+    
+    "required_experience_years": 2,
+    
+    "description": "Full job description text...",
+    "application_deadline": "2026-06-30",
+    
+    "posted_by": "admin_001",
+    "created_at": "2026-04-25T10:00:00Z"
+  }
+}
+```
+
+### Field Definitions:
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `title` | String | Job title | "Admin Assistant" |
+| `company` | String | Company name | "Aga Khan Hospital" |
+| `sector` | Enum | Industry sector | "Healthcare" |
+| `job_function` | Enum | Broad job function | "Administration" |
+| `location` | String | Job location | "Nairobi, Kenya" |
+| `job_type` | Enum | Employment type | "Full-time" |
+| `required_skills` | Array | Required hard skills | ["Filing", "Scheduling"] |
+| `required_education.level` | Enum | Minimum education level | "Diploma" |
+| `required_education.field` | String | Preferred field | "Business Administration" |
+| `required_experience_years` | Integer | Minimum years | 2 |
+| `description` | Text | Full job description | "..." |
+
+---
+
+# 4. Data Normalization & Enums
+
+## 4.1 Why Normalization Matters
+
+Without normalization, the same concept appears in multiple forms:
+
+| Raw LLM Output | Issue |
+|----------------|-------|
+| "BSc", "B.Sc", "Bachelor of Science", "Bachelors" | 4 variations of "Bachelor" |
+| "Admin", "Administration", "Office Admin" | 3 variations of "Administration" |
+| "Telco", "Telecom", "Telecommunications" | 3 variations of "Telecommunications" |
+
+**Normalization** maps all variations to a single canonical value.
+
+## 4.2 Education Level Enums
+
+```python
+EDUCATION_LEVEL_ENUMS = {
+    "PhD": ["phd", "doctorate", "doctor of", "d.phil", "ph.d"],
+    "Masters": ["masters", "master of", "msc", "ma", "m.a", "m.sc", "mba", "llm", "m.ed"],
+    "Bachelor": ["bachelor", "bsc", "b.a", "ba", "b.com", "bcom", "b.ed", "b.eng", "llb", "bachelor of"],
+    "Diploma": ["diploma", "dip", "dipl"],
+    "Certificate": ["certificate", "cert", "certif"],
+    "None": ["none", "n/a", "nil", null]
+}
+```
+
+## 4.3 Job Function Enums
+
+```python
+FUNCTION_ENUMS = {
+    "Administration": ["admin", "administrative", "office admin", "office manager", "executive assistant", "clerk"],
+    "Finance": ["finance", "accounting", "accountant", "audit", "auditor", "financial", "bookkeeping", "treasury"],
+    "IT": ["it", "information technology", "computer", "software", "programming", "developer", "network", "cybersecurity", "systems"],
+    "Engineering": ["engineering", "engineer", "civil", "mechanical", "electrical", "automotive", "structural"],
+    "Sales": ["sales", "selling", "business development", "relationship officer", "account manager"],
+    "Marketing": ["marketing", "brand", "digital marketing", "communications", "pr", "public relations"],
+    "Healthcare": ["healthcare", "medical", "nursing", "clinical", "doctor", "lab", "pharmacy", "therapist"],
+    "Education": ["education", "teaching", "lecturer", "trainer", "instructor", "tutor", "faculty"],
+    "Hospitality": ["hospitality", "hotel", "restaurant", "catering", "chef", "cook", "lodging"],
+    "Logistics": ["logistics", "supply chain", "procurement", "warehouse", "transport", "fleet", "purchasing"],
+    "Legal": ["legal", "law", "lawyer", "advocate", "paralegal", "counsel"],
+    "Customer Service": ["customer service", "customer care", "call center", "front desk", "reception", "support"],
+    "Operations": ["operations", "operational", "production", "manufacturing", "facilities"],
+    "Human Resources": ["hr", "human resources", "recruitment", "people", "talent", "staffing"],
+    "Other": []  # Default fallback for unknown
+}
+```
+
+## 4.4 Sector Enums (Job Only)
+
+```python
+SECTOR_ENUMS = {
+    "Agriculture": ["agriculture", "agri", "farming", "horticulture", "agribusiness"],
+    "Banking": ["banking", "financial services", "bank", "microfinance"],
+    "Construction": ["construction", "building", "real estate", "property"],
+    "Education": ["education", "school", "university", "college", "academy"],
+    "Energy": ["energy", "oil", "gas", "power", "electric", "renewable"],
+    "Finance": ["finance", "investment", "asset management", "wealth"],
+    "Government": ["government", "public service", "county", "state", "parastatal"],
+    "Healthcare": ["healthcare", "hospital", "clinic", "medical", "pharma", "health"],
+    "Hospitality": ["hospitality", "hotel", "restaurant", "tourism", "travel"],
+    "Insurance": ["insurance", "assurance", "risk"],
+    "IT/Technology": ["it", "technology", "software", "tech", "telecom"],
+    "Legal": ["legal", "law firm", "advocates", "courts"],
+    "Manufacturing": ["manufacturing", "production", "factory", "industrial", "fmcg"],
+    "Media": ["media", "broadcasting", "publishing", "news", "content"],
+    "NGO/Development": ["ngo", "non-profit", "development", "humanitarian", "aid"],
+    "Real Estate": ["real estate", "property", "housing", "realtor"],
+    "Retail": ["retail", "supermarket", "store", "e-commerce", "wholesale"],
+    "Telecommunications": ["telecom", "telco", "mobile", "internet", "communications"],
+    "Transport/Logistics": ["transport", "logistics", "shipping", "aviation", "cargo"],
+    "Other": []  # Default fallback
+}
+```
+
+## 4.5 Job Type Enums
+
+```python
+JOB_TYPE_ENUMS = {
+    "Full-time": ["full-time", "full time", "permanent", "fulltime"],
+    "Part-time": ["part-time", "part time", "parttime"],
+    "Contract": ["contract", "contractual", "temporary"],
+    "Internship": ["internship", "intern", "trainee", "graduate trainee"]
+}
+```
+
+## 4.6 Normalization Pipeline
+
+### Step-by-Step Flow:
+
+```
+LLM Output (Raw JSON)
+      |
+      ▼
+┌─────────────────────────────────────────────────────────────┐
+│  normalize_candidate(raw_json):                            │
+│                                                             │
+│  1. Normalize education.level                              │
+│     "BSc" → "Bachelor"                                    │
+│                                                             │
+│  2. Normalize work_experience[].function                   │
+│     "Admin Assistant" → "Administration"                  │
+│                                                             │
+│  3. De-duplicate skills per cluster                        │
+│     ["Excel", "Excel"] → ["Excel"]                        │
+│                                                             │
+│  4. Calculate years_experience per cluster                 │
+│     From start/end dates of jobs                           │
+│                                                             │
+│  5. Validate and clean strings                             │
+└─────────────────────────────────────────────────────────────┘
+      |
+      ▼
+Stored in Database (Clean Enums)
+```
+
+### Implementation:
+
+```javascript
+// Next.js API Route - normalization helper
+function normalizeEducationLevel(rawLevel) {
+    if (!rawLevel) return null;
+    const lower = rawLevel.toLowerCase().trim();
+    
+    for (const [canonical, variations] of Object.entries(EDUCATION_LEVEL_ENUMS)) {
+        for (const variation of variations) {
+            if (lower.includes(variation)) {
+                return canonical;
+            }
+        }
+    }
+    return "None"; // Default
+}
+
+function normalizeFunction(rawFunction) {
+    if (!rawFunction) return "Other";
+    const lower = rawFunction.toLowerCase().trim();
+    
+    for (const [canonical, variations] of Object.entries(FUNCTION_ENUMS)) {
+        for (const variation of variations) {
+            if (lower.includes(variation)) {
+                return canonical;
+            }
+        }
+    }
+    return "Other";
+}
+
+function normalizeJob(rawJson) {
+    // Normalize fields
+    rawJson.job.job_function = normalizeFunction(rawJson.job.job_function);
+    rawJson.job.sector = normalizeSector(rawJson.job.sector);
+    rawJson.job.required_education.level = normalizeEducationLevel(
+        rawJson.job.required_education.level
+    );
+    return rawJson;
+}
+```
+
+---
+
+# 5. LLM Extraction
+
+## 5.1 Technology Choice: LLM-Based Extraction
+
+**Why LLM over Regex?**
+
+| Challenge | Regex/NLP | LLM |
+|-----------|-----------|-----|
+| Messy formatting (tables, columns) | ❌ Breaks | ✅ Handles naturally |
+| Inconsistent headers | ❌ Requires exhaustive rules | ✅ Understands context |
+| Skills scattered across sections | ❌ Difficult to capture | ✅ Extracts from anywhere |
+| Dates in various formats | ❌ Complex parsing | ✅ Standardizes output |
+| Context understanding | ❌ Ambiguous | ✅ Infers correctly |
+
+**Recommended LLM:**
+- **Gemini 1.5 Flash** or **GPT-4o-mini**
+- Low cost (~$0.001 per CV)
+- Fast processing (2-5 seconds)
+- Large context windows (1M+ tokens)
+
+## 5.2 CV Extraction Prompt
+
+```
+You are an expert CV parser. Extract structured information from the following Kenyan CV.
+
+Extract the following JSON structure:
+
+{
+  "profile": {
+    "full_name": "string",
+    "phone": "string",
+    "email": "string",
+    "location": "string"
+  },
+  "education": {
+    "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+    "field": "string",
+    "institution": "string",
+    "start_year": "YYYY",
+    "end_year": "YYYY"
+  },
+  "work_experience": [
+    {
+      "function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+      "job_titles": ["string"],
+      "skills": ["string"],
+      "years_experience": "number",
+      "representative_company": "string (optional)"
+    }
+  ],
+  "extras": {
+    "certifications": [{"name": "string", "institution": "string", "year": "YYYY"}],
+    "referees": [{"name": "string", "title": "string", "company": "string", "phone": "string", "email": "string"}],
+    "languages": ["string"],
+    "professional_memberships": ["string"],
+    "trainings": [{"name": "string", "institution": "string", "year": "YYYY"}]
+  }
+}
+
+Instructions:
+1. Group similar job experiences into clusters based on function
+2. Extract hard skills only (e.g., "Microsoft Excel", "Bookkeeping", "Cisco")
+3. DO NOT extract soft skills like "hardworking", "team player" unless explicitly listed as core competencies
+4. Calculate years of experience for each cluster
+5. DO NOT extract company sector/industry
+6. DO NOT extract date of birth, nationality, or grade/class
+7. DO NOT extract administrative requirements
+8. If any field cannot be determined, use null
+9. Output ONLY valid JSON
+```
+
+## 5.3 Job Description Extraction Prompt
+
+```
+You are an expert job description parser. Extract structured information from the following job posting.
+
+Extract the following JSON structure:
+
+{
+  "job": {
+    "title": "string",
+    "company": "string",
+    "sector": "string (Agriculture|Banking|Construction|Education|Energy|Finance|Government|Healthcare|Hospitality|Insurance|IT/Technology|Legal|Manufacturing|Media|NGO/Development|Real Estate|Retail|Telecommunications|Transport/Logistics|Other)",
+    "job_function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+    "location": "string",
+    "job_type": "string (Full-time|Part-time|Contract|Internship)",
+    "required_skills": ["string"],
+    "required_education": {
+      "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+      "field": "string (or 'Any' if not specified)"
+    },
+    "required_experience_years": "number (0 if not specified)"
+  }
+}
+
+Instructions:
+1. Sector should be inferred from the company type, or 'Other' if unknown
+2. Job function should be inferred from the title and responsibilities
+3. Required skills: Look for explicit requirements. Include software tools, certifications, and hard skills
+4. For education: If "Any" or "Related field" mentioned, set field = "Any"
+5. For experience: Convert "3+ years" to 3, "5-7 years" to the minimum (5)
+6. DO NOT extract administrative requirements like license, age, nationality
+7. Output ONLY valid JSON
+```
+
+## 5.4 Cost Estimation
+
+| Operation | Cost | Frequency | Monthly Cost (10,000 CVs) |
+|-----------|------|-----------|---------------------------|
+| CV Parsing | ~$0.001 | Once per upload | $10 |
+| JD Parsing | ~$0.001 | Once per job post | ~$1 (for 1,000 jobs) |
+| Matching | $0 | Unlimited | $0 |
+| **Total** | | | **~$11/month** |
+
+---
+
+# 6. Matching Algorithm
+
+## 6.1 Core Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Inclusive** | Never hides jobs based on missing data |
+| **Function-Based** | Primary match is on job function |
+| **Ranked** | Best matches appear first |
+| **Explainable** | Each match shows why it was recommended |
+| **User-Controlled** | Only selected trajectories are matched |
+
+## 6.2 Step-by-Step Logic
+
+### Step 1: Function Match (Gateway Filter)
+
+```javascript
+// Next.js API Route - matching logic
+function isFunctionMatch(candidate, job) {
+    // Only check selected clusters
+    const activeClusters = candidate.work_experience.filter(c => c.selected);
+    
+    for (const cluster of activeClusters) {
+        if (cluster.function.toLowerCase() === job.job_function.toLowerCase()) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+**Outcome:**
+- If **any** selected cluster matches → Show the job
+- If **no** selected cluster matches → Hide the job
+
+### Step 2: Calculate Match Score (Ranking)
+
+```javascript
+function calculateMatchScore(cluster, job, candidate) {
+    let score = 0;
+    
+    // 1. Job Title Match (40 points)
+    const jobTitleLower = job.title.toLowerCase();
+    const hasExactMatch = cluster.job_titles.some(
+        t => t.toLowerCase() === jobTitleLower
+    );
+    
+    if (hasExactMatch) {
+        score += 40;
+    } else {
+        // Partial match - check for keyword overlap
+        const jobKeywords = new Set(job.title.toLowerCase().split(' '));
+        const titleKeywords = new Set(
+            cluster.job_titles.join(' ').toLowerCase().split(' ')
+        );
+        const overlap = [...jobKeywords].filter(k => titleKeywords.has(k));
+        if (overlap.length > 0) {
+            score += Math.min(20, overlap.length * 5);
+        }
+    }
+    
+    // 2. Skills Match (35 points)
+    const matchedSkills = job.required_skills.filter(
+        skill => cluster.skills.some(s => s.toLowerCase() === skill.toLowerCase())
+    );
+    
+    if (job.required_skills.length > 0) {
+        const skillPercentage = matchedSkills.length / job.required_skills.length;
+        score += skillPercentage * 35;
+    }
+    
+    // 3. Education Match (15 points)
+    if (job.required_education.level) {
+        const eduScore = compareEducation(
+            candidate.education.level,
+            job.required_education.level
+        );
+        score += eduScore * 15;
+        
+        // Bonus for field relevance (5 points)
+        if (job.required_education.field && 
+            job.required_education.field !== "Any") {
+            const isRelated = isFieldRelated(
+                candidate.education.field,
+                job.required_education.field
+            );
+            if (isRelated) score += 5;
+        }
+    }
+    
+    // 4. Experience Match (10 points)
+    if (job.required_experience_years > 0) {
+        const expRatio = Math.min(
+            1.0,
+            cluster.years_experience / job.required_experience_years
+        );
+        score += expRatio * 10;
+    }
+    
+    return Math.round(score);
+}
+```
+
+### Step 3: Education Level Comparison
+
+```javascript
+const EDUCATION_LEVELS = {
+    "PhD": 5,
+    "Masters": 4,
+    "Bachelor": 3,
+    "Diploma": 2,
+    "Certificate": 1,
+    "None": 0
+};
+
+function compareEducation(candidateLevel, jobRequiredLevel) {
+    const candidateValue = EDUCATION_LEVELS[candidateLevel] || 0;
+    const requiredValue = EDUCATION_LEVELS[jobRequiredLevel] || 0;
+    
+    if (candidateValue >= requiredValue) {
+        return 1.0;
+    } else if (candidateValue === requiredValue - 1) {
+        return 0.7;
+    } else if (candidateValue === requiredValue - 2) {
+        return 0.3;
+    } else {
+        return 0.0;
+    }
+}
+
+function isFieldRelated(candidateField, jobField) {
+    // Simplified - could use a predefined mapping or simple string matching
+    if (!candidateField || !jobField) return false;
+    if (candidateField.toLowerCase() === jobField.toLowerCase()) return true;
+    
+    // Check if one is contained in the other
+    const cLower = candidateField.toLowerCase();
+    const jLower = jobField.toLowerCase();
+    return cLower.includes(jLower) || jLower.includes(cLower);
+}
+```
+
+### Step 4: Generate Explanation
+
+```javascript
+function generateExplanation(cluster, job) {
+    const matchedSkills = job.required_skills.filter(
+        skill => cluster.skills.some(s => s.toLowerCase() === skill.toLowerCase())
+    );
+    
+    const sampleTitle = cluster.job_titles[0] || "your experience";
+    let explanation = `This job matches your experience as a ${sampleTitle}`;
+    
+    if (matchedSkills.length > 0) {
+        const skillList = matchedSkills.slice(0, 3).join(', ');
+        explanation += ` and your skills in ${skillList}`;
+        if (matchedSkills.length > 3) {
+            explanation += ` and ${matchedSkills.length - 3} other skills`;
+        }
+    }
+    
+    return explanation;
+}
+```
+
+### Step 5: Final Ranking
+
+```javascript
+function rankJobsForCandidate(candidate, allJobs) {
+    const rankedJobs = [];
+    const activeClusters = candidate.work_experience.filter(c => c.selected);
+    
+    for (const job of allJobs) {
+        let bestScore = 0;
+        let bestCluster = null;
+        
+        for (const cluster of activeClusters) {
+            if (cluster.function.toLowerCase() === job.job_function.toLowerCase()) {
+                const score = calculateMatchScore(cluster, job, candidate);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCluster = cluster;
+                }
+            }
+        }
+        
+        if (bestCluster) {
+            rankedJobs.push({
+                job_id: job.job_id,
+                match_score: bestScore,
+                matched_cluster_id: bestCluster.cluster_id,
+                explanation: generateExplanation(bestCluster, job)
+            });
+        }
+    }
+    
+    // Sort by match score (highest first)
+    rankedJobs.sort((a, b) => b.match_score - a.match_score);
+    return rankedJobs;
+}
+```
+
+## 6.3 What We Match On vs What We Don't
+
+### ✅ MATCH ON:
+
+| Factor | Weight | Purpose |
+|--------|--------|---------|
+| **Function** | Required | Primary filter - job must match a candidate cluster |
+| **Job Titles** | 40 points | Exact or partial title match |
+| **Skills** | 35 points | Percentage of required skills present |
+| **Education Level** | 15 points | Higher or equal to requirement |
+| **Education Field** | 5 points (bonus) | Related field |
+| **Experience Years** | 10 points | Years in matching cluster |
+
+### ❌ DO NOT MATCH ON:
+
+| Factor | Reason |
+|--------|--------|
+| **Driver's License** | Administrative requirement - candidate decides |
+| **Age** | Not relevant for matching |
+| **Nationality** | Not relevant for matching |
+| **Languages** | Not relevant for matching |
+| **Certifications** | Too varied, hard to standardize |
+| **Referees** | Not relevant for matching |
+| **Company Sector** | Too ambiguous to extract from CV |
+| **Grade/Class** | Not relevant for matching |
+
+---
+
+# 7. Database Schema
+
+## 7.1 MySQL Schema
+
+```sql
+-- ============================================
+-- CANDIDATES TABLE
+-- ============================================
+CREATE TABLE candidates (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    full_name VARCHAR(255),
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    location VARCHAR(255),
+    
+    -- Education (normalized)
+    education_level ENUM('PhD','Masters','Bachelor','Diploma','Certificate','None'),
+    education_field VARCHAR(255),
+    education_institution VARCHAR(255),
+    education_start_year INT,
+    education_end_year INT,
+    
+    -- Raw data
+    raw_cv_text LONGTEXT,
+    parsed_data JSON,  -- Full candidate JSON
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_email (email),
+    INDEX idx_education_level (education_level)
+);
+
+-- ============================================
+-- CANDIDATE WORK EXPERIENCE (Clusters)
+-- ============================================
+CREATE TABLE candidate_clusters (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    candidate_id VARCHAR(36) NOT NULL,
+    
+    -- Normalized fields
+    function ENUM('Administration','Finance','IT','Engineering','Sales','Marketing','Healthcare','Education','Hospitality','Logistics','Legal','Customer Service','Operations','Human Resources','Other'),
+    job_titles JSON,  -- Array of strings
+    skills JSON,      -- Array of strings
+    years_experience DECIMAL(5,2),
+    representative_company VARCHAR(255),
+    
+    -- User selection
+    selected BOOLEAN DEFAULT TRUE,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+    INDEX idx_candidate (candidate_id),
+    INDEX idx_function (function),
+    INDEX idx_selected (selected)
+);
+
+-- ============================================
+-- CANDIDATE EXTRAS (Resume Builder)
+-- ============================================
+CREATE TABLE candidate_extras (
+    candidate_id VARCHAR(36) PRIMARY KEY,
+    certifications JSON,
+    referees JSON,
+    languages JSON,
+    professional_memberships JSON,
+    trainings JSON,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- JOBS TABLE
+-- ============================================
+CREATE TABLE jobs (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    title VARCHAR(255),
+    company VARCHAR(255),
+    
+    -- Normalized fields
+    sector ENUM('Agriculture','Banking','Construction','Education','Energy','Finance','Government','Healthcare','Hospitality','Insurance','IT/Technology','Legal','Manufacturing','Media','NGO/Development','Real Estate','Retail','Telecommunications','Transport/Logistics','Other'),
+    job_function ENUM('Administration','Finance','IT','Engineering','Sales','Marketing','Healthcare','Education','Hospitality','Logistics','Legal','Customer Service','Operations','Human Resources','Other'),
+    
+    location VARCHAR(255),
+    job_type ENUM('Full-time','Part-time','Contract','Internship'),
+    
+    required_skills JSON,  -- Array of strings
+    required_education_level ENUM('PhD','Masters','Bachelor','Diploma','Certificate','None'),
+    required_education_field VARCHAR(255),
+    required_experience_years INT DEFAULT 0,
+    
+    description LONGTEXT,
+    application_deadline DATE,
+    posted_by VARCHAR(36),
+    
+    -- Raw data
+    raw_jd_text LONGTEXT,
+    parsed_data JSON,  -- Full job JSON
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_job_function (job_function),
+    INDEX idx_sector (sector),
+    INDEX idx_job_type (job_type),
+    INDEX idx_created_at (created_at)
+);
+
+-- ============================================
+-- JOB MATCHES (Pre-computed)
+-- ============================================
+CREATE TABLE job_matches (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    candidate_id VARCHAR(36) NOT NULL,
+    job_id VARCHAR(36) NOT NULL,
+    match_score INT,
+    matched_cluster_id VARCHAR(36),
+    explanation TEXT,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (matched_cluster_id) REFERENCES candidate_clusters(id) ON DELETE SET NULL,
+    
+    UNIQUE KEY unique_match (candidate_id, job_id),
+    INDEX idx_candidate (candidate_id),
+    INDEX idx_job (job_id),
+    INDEX idx_score (match_score DESC)
+);
+
+-- ============================================
+-- JOB APPLICATIONS (Future)
+-- ============================================
+CREATE TABLE job_applications (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    candidate_id VARCHAR(36) NOT NULL,
+    job_id VARCHAR(36) NOT NULL,
+    status ENUM('pending','reviewed','shortlisted','rejected','hired') DEFAULT 'pending',
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+    
+    UNIQUE KEY unique_application (candidate_id, job_id),
+    INDEX idx_candidate (candidate_id),
+    INDEX idx_job (job_id),
+    INDEX idx_status (status)
+);
+```
+
+---
+
+# 8. Tech Stack Recommendations
+
+## 8.1 Overview
+
+| Component | Technology | Reason |
+|-----------|-----------|--------|
+| **Frontend** | Next.js 14+ (React) | Full-stack framework, API routes, server components |
+| **Backend** | Next.js API Routes | Unified codebase, easy deployment |
+| **Database** | MySQL 8.0+ | Reliable, widely used, JSON support |
+| **LLM** | Gemini 1.5 Flash | Cheap ($0.001/call), fast, large context |
+| **Background Jobs** | Cron Jobs / GitHub Actions | Simple, reliable, no extra infra |
+| **Hosting** | Vercel / AWS | Scalable, easy deployment |
+
+## 8.2 Next.js Setup
+
+### Project Structure:
+
+```
+project/
+├── app/
+│   ├── api/
+│   │   ├── candidates/
+│   │   │   ├── route.js          # POST - Upload CV
+│   │   │   └── [id]/
+│   │   │       ├── route.js      # GET - Candidate details
+│   │   │       └── matches/
+│   │   │           └── route.js  # GET - Candidate matches
+│   │   ├── jobs/
+│   │   │   ├── route.js          # POST - Post job
+│   │   │   └── [id]/
+│   │   │       └── route.js      # GET - Job details
+│   │   └── match/
+│   │       └── route.js          # POST - Trigger matching
+│   ├── dashboard/
+│   │   ├── candidate/
+│   │   │   └── page.js           # Candidate dashboard
+│   │   └── admin/
+│   │       └── page.js           # Admin dashboard
+│   └── page.js                   # Landing page
+├── lib/
+│   ├── db.js                     # Database connection
+│   ├── llm.js                    # LLM integration
+│   ├── normalize.js              # Normalization helpers
+│   ├── matching.js               # Matching algorithm
+│   └── enums.js                  # Enum definitions
+├── models/
+│   ├── Candidate.js
+│   ├── Job.js
+│   └── JobMatch.js
+├── scripts/
+│   └── run-matching.js           # Cron job script
+└── package.json
+```
+
+### Key Dependencies:
+
+```json
+{
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "mysql2": "^3.0.0",
+    "@google/generative-ai": "^0.1.0",
+    "pdf-parse": "^1.1.0",
+    "mammoth": "^1.6.0",
+    "dotenv": "^16.0.0"
+  }
+}
+```
+
+## 8.3 Database Connection (MySQL)
+
+```javascript
+// lib/db.js
+import mysql from 'mysql2/promise';
+
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'job_platform',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+export async function query(sql, params = []) {
+    const [rows] = await pool.execute(sql, params);
+    return rows;
+}
+
+export default pool;
+```
+
+## 8.4 LLM Integration
+
+```javascript
+// lib/llm.js
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+export async function parseCV(text) {
+    const prompt = `
+    You are an expert CV parser. Extract structured information from the following Kenyan CV.
+    
+    Extract the following JSON structure:
+    {
+      "profile": {
+        "full_name": "string",
+        "phone": "string",
+        "email": "string",
+        "location": "string"
+      },
+      "education": {
+        "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+        "field": "string",
+        "institution": "string",
+        "start_year": "YYYY",
+        "end_year": "YYYY"
+      },
+      "work_experience": [
+        {
+          "function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+          "job_titles": ["string"],
+          "skills": ["string"],
+          "years_experience": "number",
+          "representative_company": "string (optional)"
+        }
+      ],
+      "extras": {
+        "certifications": [{"name": "string", "institution": "string", "year": "YYYY"}],
+        "referees": [{"name": "string", "title": "string", "company": "string", "phone": "string", "email": "string"}],
+        "languages": ["string"],
+        "professional_memberships": ["string"],
+        "trainings": [{"name": "string", "institution": "string", "year": "YYYY"}]
+      }
+    }
+    
+    CV Text:
+    ${text}
+    
+    Output ONLY valid JSON. Do not include any other text.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const jsonText = response.text();
+    
+    try {
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error('Failed to parse LLM response:', error);
+        return null;
+    }
+}
+
+export async function parseJD(text) {
+    const prompt = `
+    You are an expert job description parser. Extract structured information from the following job posting.
+    
+    Extract the following JSON structure:
+    {
+      "job": {
+        "title": "string",
+        "company": "string",
+        "sector": "string (Agriculture|Banking|Construction|Education|Energy|Finance|Government|Healthcare|Hospitality|Insurance|IT/Technology|Legal|Manufacturing|Media|NGO/Development|Real Estate|Retail|Telecommunications|Transport/Logistics|Other)",
+        "job_function": "string (Administration|Finance|IT|Engineering|Sales|Marketing|Healthcare|Education|Hospitality|Logistics|Legal|Customer Service|Operations|Human Resources|Other)",
+        "location": "string",
+        "job_type": "string (Full-time|Part-time|Contract|Internship)",
+        "required_skills": ["string"],
+        "required_education": {
+          "level": "string (PhD|Masters|Bachelor|Diploma|Certificate|None)",
+          "field": "string (or 'Any' if not specified)"
+        },
+        "required_experience_years": "number (0 if not specified)"
+      }
+    }
+    
+    Job Description:
+    ${text}
+    
+    Output ONLY valid JSON. Do not include any other text.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const jsonText = response.text();
+    
+    try {
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error('Failed to parse LLM response:', error);
+        return null;
+    }
+}
+```
+
+## 8.5 Normalization Helpers
+
+```javascript
+// lib/normalize.js
+import { EDUCATION_LEVEL_ENUMS, FUNCTION_ENUMS, SECTOR_ENUMS } from './enums';
+
+export function normalizeEducationLevel(raw) {
+    if (!raw) return 'None';
+    const lower = raw.toLowerCase().trim();
+    
+    for (const [canonical, variations] of Object.entries(EDUCATION_LEVEL_ENUMS)) {
+        for (const variation of variations) {
+            if (lower.includes(variation)) {
+                return canonical;
+            }
+        }
+    }
+    return 'None';
+}
+
+export function normalizeFunction(raw) {
+    if (!raw) return 'Other';
+    const lower = raw.toLowerCase().trim();
+    
+    for (const [canonical, variations] of Object.entries(FUNCTION_ENUMS)) {
+        for (const variation of variations) {
+            if (lower.includes(variation)) {
+                return canonical;
+            }
+        }
+    }
+    return 'Other';
+}
+
+export function normalizeSector(raw) {
+    if (!raw) return 'Other';
+    const lower = raw.toLowerCase().trim();
+    
+    for (const [canonical, variations] of Object.entries(SECTOR_ENUMS)) {
+        for (const variation of variations) {
+            if (lower.includes(variation)) {
+                return canonical;
+            }
+        }
+    }
+    return 'Other';
+}
+
+export function normalizeCandidate(rawJson) {
+    if (!rawJson) return null;
+    
+    // Normalize education
+    if (rawJson.education) {
+        rawJson.education.level = normalizeEducationLevel(rawJson.education.level);
+    }
+    
+    // Normalize work experience clusters
+    if (rawJson.work_experience) {
+        for (const cluster of rawJson.work_experience) {
+            cluster.function = normalizeFunction(cluster.function);
+            
+            // De-duplicate skills
+            if (cluster.skills) {
+                cluster.skills = [...new Set(cluster.skills.map(s => s.trim()))];
+            }
+        }
+    }
+    
+    return rawJson;
+}
+
+export function normalizeJob(rawJson) {
+    if (!rawJson) return null;
+    
+    if (rawJson.job) {
+        rawJson.job.sector = normalizeSector(rawJson.job.sector);
+        rawJson.job.job_function = normalizeFunction(rawJson.job.job_function);
+        if (rawJson.job.required_education) {
+            rawJson.job.required_education.level = normalizeEducationLevel(
+                rawJson.job.required_education.level
+            );
+        }
+    }
+    
+    return rawJson;
+}
+```
+
+## 8.6 Enum Definitions
+
+```javascript
+// lib/enums.js
+export const EDUCATION_LEVEL_ENUMS = {
+    'PhD': ['phd', 'doctorate', 'doctor of', 'd.phil', 'ph.d'],
+    'Masters': ['masters', 'master of', 'msc', 'ma', 'm.a', 'm.sc', 'mba', 'llm', 'm.ed'],
+    'Bachelor': ['bachelor', 'bsc', 'b.a', 'ba', 'b.com', 'bcom', 'b.ed', 'b.eng', 'llb', 'bachelor of'],
+    'Diploma': ['diploma', 'dip', 'dipl'],
+    'Certificate': ['certificate', 'cert', 'certif'],
+    'None': ['none', 'n/a', 'nil']
+};
+
+export const FUNCTION_ENUMS = {
+    'Administration': ['admin', 'administrative', 'office admin', 'office manager', 'executive assistant', 'clerk'],
+    'Finance': ['finance', 'accounting', 'accountant', 'audit', 'auditor', 'financial', 'bookkeeping', 'treasury'],
+    'IT': ['it', 'information technology', 'computer', 'software', 'programming', 'developer', 'network', 'cybersecurity', 'systems'],
+    'Engineering': ['engineering', 'engineer', 'civil', 'mechanical', 'electrical', 'automotive', 'structural'],
+    'Sales': ['sales', 'selling', 'business development', 'relationship officer', 'account manager'],
+    'Marketing': ['marketing', 'brand', 'digital marketing', 'communications', 'pr', 'public relations'],
+    'Healthcare': ['healthcare', 'medical', 'nursing', 'clinical', 'doctor', 'lab', 'pharmacy', 'therapist'],
+    'Education': ['education', 'teaching', 'lecturer', 'trainer', 'instructor', 'tutor', 'faculty'],
+    'Hospitality': ['hospitality', 'hotel', 'restaurant', 'catering', 'chef', 'cook', 'lodging'],
+    'Logistics': ['logistics', 'supply chain', 'procurement', 'warehouse', 'transport', 'fleet', 'purchasing'],
+    'Legal': ['legal', 'law', 'lawyer', 'advocate', 'paralegal', 'counsel'],
+    'Customer Service': ['customer service', 'customer care', 'call center', 'front desk', 'reception', 'support'],
+    'Operations': ['operations', 'operational', 'production', 'manufacturing', 'facilities'],
+    'Human Resources': ['hr', 'human resources', 'recruitment', 'people', 'talent', 'staffing'],
+    'Other': []
+};
+
+export const SECTOR_ENUMS = {
+    'Agriculture': ['agriculture', 'agri', 'farming', 'horticulture', 'agribusiness'],
+    'Banking': ['banking', 'financial services', 'bank', 'microfinance'],
+    'Construction': ['construction', 'building', 'real estate', 'property'],
+    'Education': ['education', 'school', 'university', 'college', 'academy'],
+    'Energy': ['energy', 'oil', 'gas', 'power', 'electric', 'renewable'],
+    'Finance': ['finance', 'investment', 'asset management', 'wealth'],
+    'Government': ['government', 'public service', 'county', 'state', 'parastatal'],
+    'Healthcare': ['healthcare', 'hospital', 'clinic', 'medical', 'pharma', 'health'],
+    'Hospitality': ['hospitality', 'hotel', 'restaurant', 'tourism', 'travel'],
+    'Insurance': ['insurance', 'assurance', 'risk'],
+    'IT/Technology': ['it', 'technology', 'software', 'tech', 'telecom'],
+    'Legal': ['legal', 'law firm', 'advocates', 'courts'],
+    'Manufacturing': ['manufacturing', 'production', 'factory', 'industrial', 'fmcg'],
+    'Media': ['media', 'broadcasting', 'publishing', 'news', 'content'],
+    'NGO/Development': ['ngo', 'non-profit', 'development', 'humanitarian', 'aid'],
+    'Real Estate': ['real estate', 'property', 'housing', 'realtor'],
+    'Retail': ['retail', 'supermarket', 'store', 'e-commerce', 'wholesale'],
+    'Telecommunications': ['telecom', 'telco', 'mobile', 'internet', 'communications'],
+    'Transport/Logistics': ['transport', 'logistics', 'shipping', 'aviation', 'cargo'],
+    'Other': []
+};
+```
+
+---
+
+# 9. API Endpoints
+
+## 9.1 Candidate APIs
+
+### POST /api/candidates
+**Upload and parse CV**
+
+```javascript
+// app/api/candidates/route.js
+import { parseCV } from '@/lib/llm';
+import { normalizeCandidate } from '@/lib/normalize';
+import { query } from '@/lib/db';
+
+export async function POST(request) {
+    try {
+        const formData = await request.formData();
+        const file = formData.get('cv');
+        const text = await extractText(file);
+        
+        // Step 1: LLM Parsing
+        const rawJson = await parseCV(text);
+        if (!rawJson) {
+            return Response.json({ error: 'Failed to parse CV' }, { status: 400 });
+        }
+        
+        // Step 2: Normalization
+        const normalized = normalizeCandidate(rawJson);
+        
+        // Step 3: Store in Database
+        const result = await query(
+            `INSERT INTO candidates (
+                full_name, phone, email, location,
+                education_level, education_field, education_institution,
+                education_start_year, education_end_year,
+                raw_cv_text, parsed_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                normalized.profile.full_name,
+                normalized.profile.phone,
+                normalized.profile.email,
+                normalized.profile.location,
+                normalized.education.level,
+                normalized.education.field,
+                normalized.education.institution,
+                normalized.education.start_year,
+                normalized.education.end_year,
+                text,
+                JSON.stringify(normalized)
+            ]
+        );
+        
+        const candidateId = result.insertId;
+        
+        // Step 4: Store Clusters
+        for (const cluster of normalized.work_experience || []) {
+            await query(
+                `INSERT INTO candidate_clusters (
+                    candidate_id, function, job_titles, skills,
+                    years_experience, representative_company, selected
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    candidateId,
+                    cluster.function,
+                    JSON.stringify(cluster.job_titles),
+                    JSON.stringify(cluster.skills),
+                    cluster.years_experience,
+                    cluster.representative_company,
+                    true  // Default selected
+                ]
+            );
+        }
+        
+        // Step 5: Store Extras
+        if (normalized.extras) {
+            await query(
+                `INSERT INTO candidate_extras (
+                    candidate_id, certifications, referees, languages,
+                    professional_memberships, trainings
+                ) VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    candidateId,
+                    JSON.stringify(normalized.extras.certifications || []),
+                    JSON.stringify(normalized.extras.referees || []),
+                    JSON.stringify(normalized.extras.languages || []),
+                    JSON.stringify(normalized.extras.professional_memberships || []),
+                    JSON.stringify(normalized.extras.trainings || [])
+                ]
+            );
+        }
+        
+        return Response.json({
+            success: true,
+            candidate_id: candidateId,
+            message: 'CV uploaded and parsed successfully'
+        });
+        
+    } catch (error) {
+        console.error('Error:', error);
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+```
+
+### GET /api/candidates/[id]/matches
+**Get candidate's job matches**
+
+```javascript
+// app/api/candidates/[id]/matches/route.js
+import { query } from '@/lib/db';
+
+export async function GET(request, { params }) {
+    try {
+        const { id } = params;
+        
+        const matches = await query(
+            `SELECT 
+                j.*,
+                jm.match_score,
+                jm.explanation,
+                jm.created_at as matched_at
+            FROM job_matches jm
+            JOIN jobs j ON jm.job_id = j.id
+            WHERE jm.candidate_id = ?
+            ORDER BY jm.match_score DESC`,
+            [id]
+        );
+        
+        return Response.json({
+            success: true,
+            matches
+        });
+        
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+```
+
+### PUT /api/candidates/[id]/trajectories
+**Update selected trajectories**
+
+```javascript
+// app/api/candidates/[id]/trajectories/route.js
+import { query } from '@/lib/db';
+
+export async function PUT(request, { params }) {
+    try {
+        const { id } = params;
+        const { selected_clusters } = await request.json();
+        
+        // Reset all selections
+        await query(
+            `UPDATE candidate_clusters 
+             SET selected = FALSE 
+             WHERE candidate_id = ?`,
+            [id]
+        );
+        
+        // Set selected ones
+        for (const clusterId of selected_clusters) {
+            await query(
+                `UPDATE candidate_clusters 
+                 SET selected = TRUE 
+                 WHERE id = ? AND candidate_id = ?`,
+                [clusterId, id]
+            );
+        }
+        
+        return Response.json({
+            success: true,
+            message: 'Trajectories updated successfully'
+        });
+        
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+```
+
+## 9.2 Job APIs
+
+### POST /api/jobs
+**Post a new job**
+
+```javascript
+// app/api/jobs/route.js
+import { parseJD } from '@/lib/llm';
+import { normalizeJob } from '@/lib/normalize';
+import { query } from '@/lib/db';
+
+export async function POST(request) {
+    try {
+        const body = await request.json();
+        const jdText = body.description || '';
+        
+        // Step 1: LLM Parsing
+        const rawJson = await parseJD(jdText);
+        if (!rawJson) {
+            return Response.json({ error: 'Failed to parse job description' }, { status: 400 });
+        }
+        
+        // Step 2: Normalization
+        const normalized = normalizeJob(rawJson);
+        
+        // Step 3: Store in Database
+        const result = await query(
+            `INSERT INTO jobs (
+                title, company, sector, job_function,
+                location, job_type, required_skills,
+                required_education_level, required_education_field,
+                required_experience_years, description,
+                application_deadline, posted_by, raw_jd_text, parsed_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                normalized.job.title,
+                normalized.job.company,
+                normalized.job.sector,
+                normalized.job.job_function,
+                normalized.job.location,
+                normalized.job.job_type,
+                JSON.stringify(normalized.job.required_skills || []),
+                normalized.job.required_education?.level || 'None',
+                normalized.job.required_education?.field || 'Any',
+                normalized.job.required_experience_years || 0,
+                body.description || '',
+                body.application_deadline || null,
+                body.posted_by || null,
+                jdText,
+                JSON.stringify(normalized)
+            ]
+        );
+        
+        const jobId = result.insertId;
+        
+        // Step 4: Trigger background matching
+        await triggerMatching(jobId);
+        
+        return Response.json({
+            success: true,
+            job_id: jobId,
+            message: 'Job posted successfully'
+        });
+        
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+```
+
+---
+
+# 10. User Interface Flows
+
+## 10.1 Candidate Onboarding: Trajectory Selection
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  We've Analyzed Your CV!                                          │
+│                                                                     │
+│  We found these work experiences:                                 │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  ☑ Trajectory 1: Administration (3.5 years)                │   │
+│  │     Roles: Admin Assistant, Office Administrator           │   │
+│  │     Skills: Filing, Scheduling, Customer Service           │   │
+│  │     Company: Amunga & Sons Ltd                             │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │  ☑ Trajectory 2: Finance (2.0 years)                      │   │
+│  │     Roles: Accounts Assistant, Bookkeeper                  │   │
+│  │     Skills: Bookkeeping, Reconciliation, QuickBooks        │   │
+│  │     Company: KCB Bank                                      │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │  ☑ Trajectory 3: Sales (1.5 years)                        │   │
+│  │     Roles: Cashier, Sales Associate                        │   │
+│  │     Skills: POS, Cash Handling, Sales                      │   │
+│  │     Company: Naivas Supermarket                            │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  Select up to 3 trajectories you want to focus on:                 │
+│  (You can change this anytime)                                     │
+│                                                                     │
+│  [Save Preferences]  [Skip for Now]                                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 10.2 Candidate Dashboard
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Welcome, John Mwangi!                                             │
+│                                                                     │
+│  Your Focus Areas: Administration, Finance, Sales                  │
+│  [Change Focus Areas]                                              │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Your Matches (15 jobs)                          [Filter ▼] │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │                                                             │   │
+│  │  ★ Admin Assistant - Aga Khan Hospital                    │   │
+│  │    Match: 92% • Sector: Healthcare                        │   │
+│  │    Matches your Admin Assistant experience                │   │
+│  │    Skills: Filing, Scheduling, Customer Service           │   │
+│  │    [Apply Now]  [Save]                                    │   │
+│  │                                                             │   │
+│  │  ★ Office Administrator - KCB Bank                       │   │
+│  │    Match: 85% • Sector: Banking                          │   │
+│  │    Matches your Office Administrator experience          │   │
+│  │    Skills: MS Office, Scheduling, Records Mgmt           │   │
+│  │    [Apply Now]  [Save]                                    │   │
+│  │                                                             │   │
+│  │  ★ Accounts Assistant - Safaricom                        │   │
+│  │    Match: 78% • Sector: Telecom                          │   │
+│  │    Matches your Accounts Assistant experience            │   │
+│  │    Skills: Bookkeeping, Reconciliation, QuickBooks       │   │
+│  │    [Apply Now]  [Save]                                    │   │
+│  │                                                             │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  My Profile | My Applications | Job Feed                           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 10.3 Job Detail with Match Explanation
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ← Back to Dashboard                                               │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Admin Assistant                                             │   │
+│  │  Aga Khan Hospital • Healthcare • Full-time                 │   │
+│  │  Location: Nairobi, Kenya                                    │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ★ 92% Match Score                                                 │
+│                                                                     │
+│  Why this matches you:                                             │
+│  ✅ Matches your experience as an Admin Assistant (3.5 years)    │
+│  ✅ Matches your skills: Filing, Scheduling, Customer Service    │
+│  ✅ Your Bachelor's degree meets the Diploma requirement          │
+│  ✅ Your 3.5 years experience exceeds the 2-year requirement      │
+│  ⚠️ Missing skills: MS Office (You can learn this quickly)        │
+│                                                                     │
+│  Job Description:                                                   │
+│  We are seeking an experienced Admin Assistant...                 │
+│                                                                     │
+│  Requirements:                                                      │
+│  • Diploma in Business Administration                             │
+│  • 2+ years experience                                             │
+│  • Skills: Filing, Scheduling, Customer Service, MS Office        │
+│                                                                     │
+│  [Apply Now]  [Save Job]  [View Similar Jobs]                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 10.4 Admin Job Posting
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Post a New Job                                                    │
+│                                                                     │
+│  Job Title:    [Admin Assistant          ]                         │
+│  Company:      [Aga Khan Hospital        ]                         │
+│  Sector:       [Healthcare ▼]                                      │
+│  Job Function: [Administration ▼]                                  │
+│  Location:     [Nairobi, Kenya         ]                          │
+│  Job Type:     [Full-time ▼]                                       │
+│                                                                     │
+│  Required Skills:                                                   │
+│  [Filing] [Scheduling] [Customer Service] [+ Add]                 │
+│                                                                     │
+│  Required Education:                                                │
+│  Level: [Diploma ▼]    Field: [Business Administration ]          │
+│  ☑ Flexible (higher levels accepted)                              │
+│                                                                     │
+│  Minimum Experience: [2] years                                     │
+│                                                                     │
+│  Job Description:                                                   │
+│  [                                                         ]       │
+│  [  Text area...                                          ]       │
+│  [                                                         ]       │
+│                                                                     │
+│  Application Deadline: [2026-06-30]                                │
+│                                                                     │
+│  [Preview Job]  [Post Job]  [Save Draft]                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 11. Background Jobs
+
+## 11.1 Matching Cron Job
+
+### Option A: Using GitHub Actions (Recommended)
+
+```yaml
+# .github/workflows/matching.yml
+name: Run Matching
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  run-matching:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm install
+      - name: Run matching
+        run: node scripts/run-matching.js
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+```
+
+### Option B: Using Vercel Cron Jobs
+
+```javascript
+// app/api/cron/matching/route.js
+export async function GET(request) {
+    // Verify cron secret
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    try {
+        await runMatching();
+        return Response.json({ success: true });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+```
+
+### Option C: Traditional Cron Job
+
+```javascript
+// scripts/run-matching.js
+import { query } from '../lib/db.js';
+import { rankJobsForCandidate } from '../lib/matching.js';
+
+async function runMatching() {
+    console.log('Running matching job...');
+    
+    // Get all unmatched jobs (or jobs posted in the last hour)
+    const jobs = await query(
+        `SELECT * FROM jobs 
+         WHERE created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`
+    );
+    
+    if (jobs.length === 0) {
+        console.log('No new jobs to match');
+        return;
+    }
+    
+    console.log(`Matching ${jobs.length} new jobs...`);
+    
+    for (const job of jobs) {
+        // Get all candidates
+        const candidates = await query(
+            `SELECT * FROM candidates`
+        );
+        
+        for (const candidate of candidates) {
+            // Get candidate clusters
+            const clusters = await query(
+                `SELECT * FROM candidate_clusters 
+                 WHERE candidate_id = ? AND selected = TRUE`,
+                [candidate.id]
+            );
+            
+            // Calculate matches
+            const matches = rankJobsForCandidate(
+                { ...candidate, work_experience: clusters },
+                [job]
+            );
+            
+            // Store matches
+            for (const match of matches) {
+                await query(
+                    `INSERT INTO job_matches (
+                        candidate_id, job_id, match_score,
+                        matched_cluster_id, explanation
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        match_score = VALUES(match_score),
+                        explanation = VALUES(explanation),
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [
+                        candidate.id,
+                        job.id,
+                        match.match_score,
+                        match.matched_cluster_id,
+                        match.explanation
+                    ]
+                );
+            }
+        }
+    }
+    
+    console.log('Matching completed');
+}
+
+runMatching().catch(console.error);
+```
+
+## 11.2 Re-matching on Trajectory Change
+
+```javascript
+// app/api/candidates/[id]/trajectories/route.js
+// After updating selections, trigger re-matching
+
+// Step 1: Update selections in database
+// Step 2: Delete existing matches for this candidate
+await query(
+    `DELETE FROM job_matches WHERE candidate_id = ?`,
+    [id]
+);
+
+// Step 3: Re-match against all jobs
+const allJobs = await query(`SELECT * FROM jobs`);
+const candidate = await getCandidateWithClusters(id);
+const matches = rankJobsForCandidate(candidate, allJobs);
+
+// Step 4: Store new matches
+for (const match of matches) {
+    await query(
+        `INSERT INTO job_matches (...) VALUES (...)`,
+        [...]
+    );
+}
+```
+
+---
+
+# 12. Implementation Roadmap
+
+## Phase 1: Foundation (2 Weeks)
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| Database Setup | Create MySQL database, tables, indexes | 2 days |
+| LLM Integration | Setup Gemini API, test prompts | 3 days |
+| Normalization Layer | Implement enum mapping functions | 2 days |
+| Basic API Routes | Candidate upload, job posting | 3 days |
+
+**Deliverables:**
+- ✅ Working database schema
+- ✅ LLM extraction working for CVs and JDs
+- ✅ Normalization pipeline
+- ✅ API endpoints for upload/post
+
+---
+
+## Phase 2: Matching Engine (2 Weeks)
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| Matching Algorithm | Implement function + skills + education + experience scoring | 3 days |
+| Ranking Logic | Calculate match scores, sort results | 2 days |
+| Match Storage | Store matches in database, handle updates | 2 days |
+| Background Job | Setup cron job for automatic matching | 3 days |
+
+**Deliverables:**
+- ✅ Matching algorithm working
+- ✅ Matches stored in database
+- ✅ Cron job running every 5 minutes
+
+---
+
+## Phase 3: User Interface (3 Weeks)
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| Landing Page | Homepage with job search | 3 days |
+| Candidate Dashboard | Show matches, filter, sort | 5 days |
+| Admin Dashboard | Post jobs, view applicants | 3 days |
+| Trajectory Selection | UI for selecting focus areas | 2 days |
+| Job Detail Page | View job, apply, save | 2 days |
+
+**Deliverables:**
+- ✅ Candidate dashboard showing ranked matches
+- ✅ Admin dashboard for posting jobs
+- ✅ Trajectory selection UI
+- ✅ Job application flow
+
+---
+
+## Phase 4: Polish & Launch (2 Weeks)
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| Testing | Unit tests, integration tests | 3 days |
+| Edge Cases | Handle empty data, malformed CVs | 2 days |
+| Performance | Query optimization, caching | 2 days |
+| Documentation | API docs, user guides | 2 days |
+| Deployment | Deploy to Vercel/AWS | 1 day |
+
+**Deliverables:**
+- ✅ Tested, production-ready platform
+- ✅ Documentation complete
+- ✅ Deployed live
+
+---
+
+## Total Timeline: ~9 Weeks
+
+| Phase | Duration | Cumulative |
+|-------|----------|------------|
+| Phase 1: Foundation | 2 Weeks | Week 2 |
+| Phase 2: Matching Engine | 2 Weeks | Week 4 |
+| Phase 3: User Interface | 3 Weeks | Week 7 |
+| Phase 4: Polish & Launch | 2 Weeks | Week 9 |
+
+---
+
+# Summary of Key Decisions
+
+| Decision | Status | Reasoning |
+|----------|--------|-----------|
+| **Extract with LLM** | ✅ Yes | Handles messy Kenyan CVs better than regex |
+| **Work Experience Clusters** | ✅ Yes | Candidates have multiple career paths |
+| **Limit to 3 Trajectories** | ✅ Yes | Sweet spot between flexibility and focus |
+| **Sector on Candidate** | ❌ Removed | Too ambiguous to extract reliably |
+| **Sector on Job** | ✅ Included | Admin provides it for filters/labels |
+| **Function Matching** | ✅ Required | Primary filter for showing jobs |
+| **Skills Matching** | ✅ Ranking | Determines rank within matching functions |
+| **Education Matching** | ✅ Ranking | Never disqualifies, only boosts rank |
+| **Experience Matching** | ✅ Ranking | Never disqualifies, only boosts rank |
+| **Administrative Requirements** | ❌ Not Matched | Candidate decides if they qualify |
+| **Hard Disqualification** | ❌ Never | No candidate is ever locked out |
+| **Extras (Certifications, Referees)** | ✅ Stored | For resume builder, NOT for matching |
+| **Tech Stack** | Next.js + MySQL | Modern, scalable, cost-effective |
+| **Background Jobs** | Cron Jobs | Simple, reliable, no extra infra |
+| **LLM Cost Model** | Extract Once | $0.001 per CV, $0 for matches |
+
+---
+
+## End of Documentation
+
+*This documentation reflects all decisions made during the design phase. Any future changes should be documented and versioned accordingly.*
+
+**Version:** 3.0
+**Last Updated:** May 2026
