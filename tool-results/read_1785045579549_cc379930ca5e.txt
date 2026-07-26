@@ -1,0 +1,1016 @@
+     1→"""
+     2→Job Matching Platform - Phase-by-Phase Build Plan
+     3→Comprehensive technical planning document for the Kenyan job matching platform.
+     4→"""
+     5→import sys, os
+     6→sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+     7→sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'skills', 'pdf', 'scripts'))
+     8→
+     9→from reportlab.lib.pagesizes import A4
+    10→from reportlab.lib.units import inch, mm, cm
+    11→from reportlab.lib import colors
+    12→from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+    13→from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    14→from reportlab.platypus import (
+    15→    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    16→    PageBreak, KeepTogether, HRFlowable
+    17→)
+    18→from reportlab.pdfbase import pdfmetrics
+    19→from reportlab.pdfbase.ttfonts import TTFont
+    20→from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    21→import platform
+    22→
+    23→# ━━ Font Registration ━━
+    24→_IS_MAC = platform.system() == 'Darwin'
+    25→FONT_DIR = os.path.expanduser('~/.openclaw/workspace/fonts') if _IS_MAC else '/usr/share/fonts'
+    26→
+    27→pdfmetrics.registerFont(TTFont('FreeSerif', f'{FONT_DIR}/truetype/freefont/FreeSerif.ttf'))
+    28→pdfmetrics.registerFont(TTFont('FreeSerif-Bold', f'{FONT_DIR}/truetype/freefont/FreeSerifBold.ttf'))
+    29→pdfmetrics.registerFont(TTFont('FreeSerif-Italic', f'{FONT_DIR}/truetype/freefont/FreeSerifItalic.ttf'))
+    30→pdfmetrics.registerFont(TTFont('FreeSerif-BoldItalic', f'{FONT_DIR}/truetype/freefont/FreeSerifBoldItalic.ttf'))
+    31→pdfmetrics.registerFont(TTFont('DejaVuSans', f'{FONT_DIR}/truetype/dejavu/DejaVuSansMono.ttf'))
+    32→registerFontFamily('FreeSerif', normal='FreeSerif', bold='FreeSerif-Bold',
+    33→                    italic='FreeSerif-Italic', boldItalic='FreeSerif-BoldItalic')
+    34→
+    35→# ━━ Cascade Palette ━━
+    36→PAGE_BG       = colors.HexColor('#f6f5f5')
+    37→SECTION_BG    = colors.HexColor('#f0efee')
+    38→CARD_BG       = colors.HexColor('#e8e7e3')
+    39→TABLE_STRIPE  = colors.HexColor('#f1f1ef')
+    40→HEADER_FILL   = colors.HexColor('#695d3b')
+    41→COVER_BLOCK   = colors.HexColor('#5b5542')
+    42→BORDER        = colors.HexColor('#d6d1c0')
+    43→ICON          = colors.HexColor('#927d3f')
+    44→ACCENT        = colors.HexColor('#917520')
+    45→ACCENT_2      = colors.HexColor('#448ca4')
+    46→TEXT_PRIMARY   = colors.HexColor('#272623')
+    47→TEXT_MUTED     = colors.HexColor('#8f8d86')
+    48→SEM_SUCCESS   = colors.HexColor('#457a56')
+    49→SEM_WARNING   = colors.HexColor('#8d7547')
+    50→SEM_ERROR     = colors.HexColor('#a8524a')
+    51→SEM_INFO      = colors.HexColor('#53799f')
+    52→
+    53→# ━━ Styles ━━
+    54→W, H = A4
+    55→MARGIN = 54
+    56→
+    57→styles = getSampleStyleSheet()
+    58→
+    59→cover_title = ParagraphStyle('CoverTitle', fontName='FreeSerif-Bold', fontSize=28,
+    60→    leading=34, textColor=colors.white, alignment=TA_LEFT, spaceAfter=12)
+    61→cover_subtitle = ParagraphStyle('CoverSubtitle', fontName='FreeSerif', fontSize=14,
+    62→    leading=20, textColor=colors.HexColor('#d6d1c0'), alignment=TA_LEFT, spaceAfter=6)
+    63→cover_meta = ParagraphStyle('CoverMeta', fontName='FreeSerif-Italic', fontSize=10,
+    64→    leading=14, textColor=colors.HexColor('#b8b3a4'), alignment=TA_LEFT)
+    65→
+    66→h1_style = ParagraphStyle('H1', fontName='FreeSerif-Bold', fontSize=18, leading=24,
+    67→    textColor=HEADER_FILL, spaceAfter=10, spaceBefore=18)
+    68→h2_style = ParagraphStyle('H2', fontName='FreeSerif-Bold', fontSize=13, leading=18,
+    69→    textColor=ACCENT, spaceAfter=8, spaceBefore=14)
+    70→h3_style = ParagraphStyle('H3', fontName='FreeSerif-Bold', fontSize=11, leading=15,
+    71→    textColor=TEXT_PRIMARY, spaceAfter=6, spaceBefore=10)
+    72→body_style = ParagraphStyle('Body', fontName='FreeSerif', fontSize=10.5, leading=16,
+    73→    textColor=TEXT_PRIMARY, alignment=TA_JUSTIFY, spaceAfter=8)
+    74→body_left = ParagraphStyle('BodyLeft', fontName='FreeSerif', fontSize=10.5, leading=16,
+    75→    textColor=TEXT_PRIMARY, alignment=TA_LEFT, spaceAfter=6)
+    76→bullet_style = ParagraphStyle('Bullet', fontName='FreeSerif', fontSize=10.5, leading=16,
+    77→    textColor=TEXT_PRIMARY, alignment=TA_LEFT, leftIndent=18, spaceAfter=4,
+    78→    bulletIndent=6, bulletFontName='FreeSerif', bulletFontSize=10.5)
+    79→sub_bullet = ParagraphStyle('SubBullet', fontName='FreeSerif', fontSize=10, leading=15,
+    80→    textColor=TEXT_PRIMARY, alignment=TA_LEFT, leftIndent=36, spaceAfter=3,
+    81→    bulletIndent=24)
+    82→caption_style = ParagraphStyle('Caption', fontName='FreeSerif-Italic', fontSize=9,
+    83→    leading=12, textColor=TEXT_MUTED, alignment=TA_LEFT, spaceAfter=6)
+    84→phase_num = ParagraphStyle('PhaseNum', fontName='FreeSerif-Bold', fontSize=36,
+    85→    leading=40, textColor=ACCENT, alignment=TA_LEFT)
+    86→phase_title = ParagraphStyle('PhaseTitle', fontName='FreeSerif-Bold', fontSize=20,
+    87→    leading=26, textColor=TEXT_PRIMARY, alignment=TA_LEFT, spaceAfter=4)
+    88→phase_dur = ParagraphStyle('PhaseDur', fontName='FreeSerif-Italic', fontSize=11,
+    89→    leading=15, textColor=TEXT_MUTED, alignment=TA_LEFT, spaceAfter=12)
+    90→callout_style = ParagraphStyle('Callout', fontName='FreeSerif-Italic', fontSize=10.5,
+    91→    leading=16, textColor=ACCENT, alignment=TA_LEFT, leftIndent=12, spaceAfter=8,
+    92→    borderColor=ACCENT, borderWidth=1, borderPadding=8)
+    93→footer_style = ParagraphStyle('Footer', fontName='FreeSerif', fontSize=8,
+    94→    leading=10, textColor=TEXT_MUTED, alignment=TA_CENTER)
+    95→
+    96→def make_table(headers, rows, col_widths=None):
+    97→    """Create a styled table."""
+    98→    available = W - 2 * MARGIN
+    99→    if col_widths is None:
+   100→        col_widths = [available / len(headers)] * len(headers)
+   101→    else:
+   102→        col_widths = [w * available for w in col_widths]
+   103→
+   104→    header_paras = [Paragraph(f'<b>{h}</b>', ParagraphStyle('TH', fontName='FreeSerif-Bold',
+   105→        fontSize=9.5, leading=13, textColor=colors.white, alignment=TA_CENTER)) for h in headers]
+   106→    data = [header_paras]
+   107→    for row in rows:
+   108→        data.append([Paragraph(str(c), ParagraphStyle('TD', fontName='FreeSerif',
+   109→            fontSize=9, leading=13, textColor=TEXT_PRIMARY, alignment=TA_LEFT)) for c in row])
+   110→
+   111→    t = Table(data, colWidths=col_widths, repeatRows=1)
+   112→    style_cmds = [
+   113→        ('BACKGROUND', (0, 0), (-1, 0), HEADER_FILL),
+   114→        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+   115→        ('FONTNAME', (0, 0), (-1, 0), 'FreeSerif-Bold'),
+   116→        ('FONTSIZE', (0, 0), (-1, 0), 9.5),
+   117→        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+   118→        ('TOPPADDING', (0, 0), (-1, 0), 8),
+   119→        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+   120→        ('GRID', (0, 0), (-1, -1), 0.5, BORDER),
+   121→        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+   122→        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+   123→        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+   124→        ('TOPPADDING', (0, 1), (-1, -1), 5),
+   125→        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+   126→    ]
+   127→    for i in range(1, len(data)):
+   128→        if i % 2 == 0:
+   129→            style_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_STRIPE))
+   130→        else:
+   131→            style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.white))
+   132→    t.setStyle(TableStyle(style_cmds))
+   133→    return t
+   134→
+   135→def hr():
+   136→    return HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=12, spaceBefore=6)
+   137→
+   138→def heading1(text):
+   139→    return Paragraph(text, h1_style)
+   140→
+   141→def heading2(text):
+   142→    return Paragraph(text, h2_style)
+   143→
+   144→def heading3(text):
+   145→    return Paragraph(text, h3_style)
+   146→
+   147→def body(text):
+   148→    return Paragraph(text, body_style)
+   149→
+   150→def bullet(text):
+   151→    return Paragraph(f'<bullet>&bull;</bullet>{text}', bullet_style)
+   152→
+   153→def sub_bullet_item(text):
+   154→    return Paragraph(f'<bullet>-</bullet>{text}', sub_bullet)
+   155→
+   156→def caption(text):
+   157→    return Paragraph(text, caption_style)
+   158→
+   159→def spacer(h=8):
+   160→    return Spacer(1, h)
+   161→
+   162→# ━━ Build Document ━━
+   163→OUTPUT = '/home/z/my-project/download/Job_Matching_Platform_Build_Plan.pdf'
+   164→
+   165→# Cover page
+   166→story = []
+   167→
+   168→# ── COVER ──
+   169→# Dark cover block background
+   170→cover_bg = Table([['']], colWidths=[W - 2*MARGIN], rowHeights=[H - 2*MARGIN])
+   171→cover_bg.setStyle(TableStyle([
+   172→    ('BACKGROUND', (0, 0), (0, 0), COVER_BLOCK),
+   173→    ('LEFTPADDING', (0, 0), (0, 0), 0),
+   174→    ('RIGHTPADDING', (0, 0), (0, 0), 0),
+   175→    ('TOPPADDING', (0, 0), (0, 0), 0),
+   176→    ('BOTTOMPADDING', (0, 0), (0, 0), 0),
+   177→]))
+   178→
+   179→# Build cover content as a separate table
+   180→cover_content = []
+   181→cover_content.append(Spacer(1, 140))
+   182→cover_content.append(Paragraph('Job Matching Platform', cover_title))
+   183→cover_content.append(Spacer(1, 8))
+   184→cover_content.append(Paragraph('Phase-by-Phase Build Plan', ParagraphStyle('SubT',
+   185→    fontName='FreeSerif', fontSize=16, leading=22, textColor=ACCENT)))
+   186→cover_content.append(Spacer(1, 30))
+   187→cover_content.append(HRFlowable(width=120, thickness=2, color=ACCENT, spaceAfter=16))
+   188→cover_content.append(Paragraph('Comprehensive Technical Implementation Guide', cover_subtitle))
+   189→cover_content.append(Spacer(1, 12))
+   190→cover_content.append(Paragraph('Version 1.0  |  July 2026', cover_meta))
+   191→cover_content.append(Paragraph('Based on Technical Documentation v4.0', cover_meta))
+   192→cover_content.append(Spacer(1, 40))
+   193→cover_content.append(Paragraph('5 Phases  |  10 Weeks  |  Next.js 15 + TypeScript + MySQL', cover_meta))
+   194→cover_content.append(Paragraph('Kenya Data Protection Act Compliant', cover_meta))
+   195→
+   196→cover_table = Table([[c] for c in cover_content],
+   197→    colWidths=[W - 2*MARGIN - 80])
+   198→cover_table.setStyle(TableStyle([
+   199→    ('LEFTPADDING', (0, 0), (-1, -1), 40),
+   200→    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+   201→    ('TOPPADDING', (0, 0), (0, 0), 0),
+   202→    ('BOTTOMPADDING', (0, -1), (-1, -1), 0),
+   203→    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+   204→]))
+   205→
+   206→story.append(cover_table)
+   207→story.append(PageBreak())
+   208→
+   209→# ══════════════════════════════════════════════
+   210→# TABLE OF CONTENTS
+   211→# ══════════════════════════════════════════════
+   212→story.append(heading1('Table of Contents'))
+   213→story.append(hr())
+   214→story.append(Spacer(1, 6))
+   215→
+   216→toc_items = [
+   217→    ('1', 'Executive Summary', '3'),
+   218→    ('2', 'Architecture Overview', '4'),
+   219→    ('3', 'Phase 1: Foundation and Infrastructure', '6'),
+   220→    ('4', 'Phase 2: Data Pipeline (CV and JD Processing)', '9'),
+   221→    ('5', 'Phase 3: Matching Engine', '12'),
+   222→    ('6', 'Phase 4: User Interface (Candidate Experience)', '15'),
+   223→    ('7', 'Phase 5: Admin Portal, Privacy, and Production', '18'),
+   224→    ('8', 'Cross-Phase Dependencies', '20'),
+   225→    ('9', 'Risk Register and Mitigations', '21'),
+   226→    ('10', 'Team Composition and Effort Estimates', '22'),
+   227→]
+   228→for num, title, pg in toc_items:
+   229→    toc_row = Table([
+   230→        [Paragraph(f'<b>{num}</b>', ParagraphStyle('TN', fontName='FreeSerif-Bold',
+   231→            fontSize=10.5, leading=14, textColor=ACCENT)),
+   232→         Paragraph(title, ParagraphStyle('TT', fontName='FreeSerif', fontSize=10.5,
+   233→            leading=14, textColor=TEXT_PRIMARY)),
+   234→         Paragraph(pg, ParagraphStyle('TP', fontName='FreeSerif', fontSize=10.5,
+   235→            leading=14, textColor=TEXT_MUTED, alignment=TA_CENTER))]
+   236→    ], colWidths=[30, W - 2*MARGIN - 90, 60])
+   237→    toc_row.setStyle(TableStyle([
+   238→        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+   239→        ('TOPPADDING', (0, 0), (-1, -1), 4),
+   240→        ('LINEBELOW', (0, 0), (-1, -1), 0.3, BORDER),
+   241→        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+   242→    ]))
+   243→    story.append(toc_row)
+   244→story.append(PageBreak())
+   245→
+   246→# ══════════════════════════════════════════════
+   247→# SECTION 1: EXECUTIVE SUMMARY
+   248→# ══════════════════════════════════════════════
+   249→story.append(heading1('1. Executive Summary'))
+   250→story.append(hr())
+   251→
+   252→story.append(body(
+   253→    'This document presents a structured, phase-by-phase build plan for the Job Matching Platform, '
+   254→    'a Kenya-focused job matching system designed to empower candidates rather than disqualify them. '
+   255→    'The platform uses a unique "Extract Once, Compute Many" architecture where LLM processing fires only '
+   256→    'at data ingestion time (CV upload and JD posting), while all subsequent matching happens deterministically '
+   257→    'via database queries at zero marginal cost. This design achieves an estimated monthly operating cost of '
+   258→    'approximately $11 USD for processing 10,000 CVs against 1,000 active job postings.'
+   259→))
+   260→story.append(body(
+   261→    'The platform is specifically designed for the Kenyan employment landscape, where job seekers frequently '
+   262→    'hold multiple roles across different career functions simultaneously. Rather than penalizing candidates '
+   263→    'for diverse experience, the platform clusters related work experiences into career trajectories, allows '
+   264→    'candidates to select up to three focus areas, and ranks all matching jobs by relevance without ever '
+   265→    'hard-disqualifying a candidate. This philosophy of candidate empowerment is embedded in every layer of '
+   266→    'the system, from the normalization pipeline to the matching algorithm to the user interface.'
+   267→))
+   268→story.append(body(
+   269→    'The build plan is organized into five sequential phases spanning approximately 10 weeks. Each phase is '
+   270→    'self-contained with clear deliverables, acceptance criteria, and dependencies on previous phases. The first '
+   271→    'phase establishes the technical foundation including project scaffolding, database schema, and authentication. '
+   272→    'Subsequent phases layer on the data pipeline, matching engine, candidate-facing interface, and finally '
+   273→    'the admin portal, privacy compliance features, and production readiness. This phased approach allows for '
+   274→    'continuous testing and validation at each stage, reducing the risk of late-stage integration failures.'
+   275→))
+   276→
+   277→# Key metrics callout
+   278→metrics_data = [
+   279→    ['Monthly LLM Cost', '~$11 USD (10K CVs + 1K jobs)'],
+   280→    ['Matching Cost', '$0 per match (database queries only)'],
+   281→    ['Total Timeline', '5 phases, approximately 10 weeks'],
+   282→    ['Tech Stack', 'Next.js 15, TypeScript, MySQL 8.0, Prisma, NextAuth.js'],
+   283→    ['Compliance', 'Kenya Data Protection Act (2019)'],
+   284→    ['LLM Provider', 'Gemini 1.5 Flash (~$0.001 per extraction)'],
+   285→]
+   286→t = make_table(['Metric', 'Value'], metrics_data, [0.35, 0.65])
+   287→story.append(spacer(12))
+   288→story.append(t)
+   289→story.append(caption('Table 1: Platform Key Metrics'))
+   290→story.append(PageBreak())
+   291→
+   292→# ══════════════════════════════════════════════
+   293→# SECTION 2: ARCHITECTURE OVERVIEW
+   294→# ══════════════════════════════════════════════
+   295→story.append(heading1('2. Architecture Overview'))
+   296→story.append(hr())
+   297→
+   298→story.append(body(
+   299→    'The platform follows a monolithic Next.js architecture with a clear separation between the frontend '
+   300→    'presentation layer and the backend API routes. All matching logic runs on the server side, and a '
+   301→    'cron-based background job handles the periodic computation of match scores between candidates and '
+   302→    'jobs. This architecture was chosen for its simplicity, deployability, and cost efficiency, avoiding '
+   303→    'the complexity of microservices while still supporting the scale requirements of the Kenyan job market.'
+   304→))
+   305→
+   306→story.append(heading2('2.1 System Components'))
+   307→story.append(body(
+   308→    'The system comprises seven major components that work together in a pipeline. Understanding these '
+   309→    'components and their interactions is essential before beginning any development phase.'
+   310→))
+   311→
+   312→components = [
+   313→    ['Text Extraction', 'pdf-parse / mammoth', 'Extracts raw text from uploaded CV and JD files'],
+   314→    ['LLM Integration', 'Gemini 1.5 Flash API', 'Parses raw text into structured JSON (fires once per document)'],
+   315→    ['Normalization', 'Word-boundary regex + enums', 'Maps variations to canonical values, de-duplicates skills'],
+   316→    ['Matching Engine', 'Function filter + score calc', 'Pre-computes matches using DB-indexed function queries'],
+   317→    ['Background Jobs', 'GitHub Actions / Vercel Cron', 'Runs matching every 5 minutes on new/updated data'],
+   318→    ['Authentication', 'NextAuth.js (Google + Email)', 'Session management, role-based access control'],
+   319→    ['Privacy Layer', 'Consent, export, soft-delete', 'DPA-compliant data handling with 30-day deletion grace period'],
+   320→]
+   321→t2 = make_table(['Component', 'Technology', 'Description'], components, [0.18, 0.22, 0.60])
+   322→story.append(spacer(8))
+   323→story.append(t2)
+   324→story.append(caption('Table 2: System Components Overview'))
+   325→
+   326→story.append(heading2('2.2 Data Flow'))
+   327→story.append(body(
+   328→    'The data flow through the system follows two parallel paths that converge at the matching engine. '
+   329→    'The candidate path begins with CV upload, proceeds through LLM extraction and normalization, and '
+   330→    'stores structured data in the MySQL database. The job path follows the same pattern but supports '
+   331→    'four distinct input methods: paste JD text (with LLM), upload file (with LLM), paste JSON (no LLM), '
+   332→    'or fill a form directly (no LLM). Both paths deposit their structured outputs into the database, '
+   333→    'where the background matching cron job picks them up and computes match scores.'
+   334→))
+   335→story.append(body(
+   336→    'A critical design decision is that LLM is only invoked when new data enters the system. Once a CV '
+   337→    'or JD has been extracted and normalized, all subsequent matching is performed through pure database '
+   338→    'queries and deterministic scoring functions. This means the per-match cost is effectively zero, and '
+   339→    'the candidate dashboard can display results instantly without any LLM latency. The cron job runs '
+   340→    'every five minutes and only processes jobs posted within the last hour, using function-indexed '
+   341→    'queries to avoid the N-squared scalability trap of comparing every candidate against every job.'
+   342→))
+   343→
+   344→story.append(heading2('2.3 Matching Philosophy'))
+   345→story.append(body(
+   346→    'The matching algorithm is designed around five core principles: inclusiveness (never hiding jobs based '
+   347→    'on missing data), function-based filtering (primary match on job function), ranked results (best matches '
+   348→    'appear first), explainability (each match shows why it was recommended), and user control (only '
+   349→    'selected career trajectories are used for matching). The scoring system allocates 100 points across '
+   350→    'five dimensions: job title match (40 points), skills match (35 points), education level (15 points), '
+   351→    'education field relevance (5 points), and experience years (10 points). Importantly, missing data '
+   352→    'never disqualifies a candidate; it simply results in a lower score rather than exclusion.'
+   353→))
+   354→
+   355→story.append(PageBreak())
+   356→
+   357→# ══════════════════════════════════════════════
+   358→# HELPER: Phase header
+   359→# ══════════════════════════════════════════════
+   360→def phase_header(num, title, duration, goals):
+   361→    story.append(spacer(16))
+   362→    story.append(Paragraph(f'PHASE {num}', phase_num))
+   363→    story.append(Paragraph(title, phase_title))
+   364→    story.append(Paragraph(duration, phase_dur))
+   365→    story.append(hr())
+   366→    story.append(heading2('Goals'))
+   367→    for g in goals:
+   368→        story.append(bullet(g))
+   369→    story.append(spacer(8))
+   370→
+   371→# ══════════════════════════════════════════════
+   372→# SECTION 3: PHASE 1
+   373→# ══════════════════════════════════════════════
+   374→story.append(heading1('3. Phase 1: Foundation and Infrastructure'))
+   375→story.append(hr())
+   376→
+   377→phase_header('1', 'Foundation and Infrastructure', 'Week 1-2 (10 working days)', [
+   378→    'Initialize the Next.js 15 project with TypeScript and configure the development environment',
+   379→    'Set up MySQL 8.0 database with the complete schema including all tables, indexes, and relationships',
+   380→    'Implement authentication and authorization using NextAuth.js with Google and email providers',
+   381→    'Build the privacy and consent infrastructure including consent recording and soft-delete support',
+   382→    'Establish the enum normalization system with word-boundary matching to prevent false positives',
+   383→    'Configure the project structure, environment variables, and deployment pipeline for Vercel',
+   384→])
+   385→
+   386→story.append(heading2('3.1 Project Initialization'))
+   387→story.append(body(
+   388→    'The first task is to scaffold the Next.js 15 project using the App Router architecture. The project '
+   389→    'structure should follow the technical documentation layout with separate directories for API routes, '
+   390→    'library utilities, models, types, scripts, and Prisma schema files. Key dependencies to install include '
+   391→    'Next.js 15, React 18, Prisma 5, NextAuth.js 4.24, Google Generative AI SDK, pdf-parse, mammoth, Zod '
+   392→    'for validation, and bcryptjs for password hashing. TypeScript should be configured with strict mode '
+   393→    'enabled from the start to catch type errors early.'
+   394→))
+   395→story.append(body(
+   396→    'Environment variables must be configured for all external services: the Gemini API key, database '
+   397→    'connection string (DATABASE_URL), NextAuth secret, and cron job authentication token. A .env.local '
+   398→    'file should be created with placeholder values, and a .env.example file should be committed to '
+   399→    'version control for documentation purposes. The development script should include database migration '
+   400→    'commands, seed data generation, and a local development server startup sequence.'
+   401→))
+   402→
+   403→story.append(heading2('3.2 Database Schema'))
+   404→story.append(body(
+   405→    'The MySQL database requires nine core tables. The candidates table stores profile information, '
+   406→    'authentication credentials (password hash, auth provider, auth ID), and account status flags '
+   407→    '(is_active, deleted_at for soft-delete support). The candidate_education table is a child table '
+   408→    'supporting multiple qualifications per candidate, which is critical for the Kenyan market where '
+   409→    'candidates frequently hold both a degree and professional certifications like CPA or ACCA.'
+   410→))
+   411→story.append(body(
+   412→    'The candidate_clusters table stores the LLM-extracted work experience clusters, each with a '
+   413→    'normalized function enum, job titles array, skills array, years of experience, and a selected '
+   414→    'boolean flag that the candidate uses to choose their focus trajectories. The jobs table mirrors '
+   415→    'the candidate structure with normalized function, sector, and education level enums. The job_matches '
+   416→    'table serves as the pre-computed cache of matching results with a unique constraint on '
+   417→    '(candidate_id, job_id) and a descending index on match_score for fast retrieval.'
+   418→))
+   419→story.append(body(
+   420→    'Three additional tables support privacy compliance: consent_records tracks every consent action with '
+   421→    'the consent type, version, IP address, and user agent; deletion_requests manages account deletion '
+   422→    'workflows with a status enum (pending, processing, completed, cancelled) and a deleted_data JSON '
+   423→    'field for audit trails; and export_requests tracks data export requests with an expiry date for '
+   424→    'the generated download link. The parse_failures table logs any LLM extraction errors with the raw '
+   425→    'text and error message for manual review and resolution.'
+   426→))
+   427→
+   428→schema_table = [
+   429→    ['candidates', 'Profile, auth, account status', 'PRIMARY'],
+   430→    ['candidate_education', 'Multiple qualifications per candidate', 'FK -> candidates'],
+   431→    ['candidate_clusters', 'Work experience clusters (matching)', 'FK -> candidates'],
+   432→    ['candidate_extras', 'Certifications, referees, languages', 'FK -> candidates'],
+   433→    ['jobs', 'Job postings with normalized enums', 'PRIMARY'],
+   434→    ['job_matches', 'Pre-computed match results', 'FK -> candidates, jobs'],
+   435→    ['consent_records', 'DPA consent audit trail', 'FK -> candidates'],
+   436→    ['deletion_requests', 'Account deletion workflow', 'FK -> candidates'],
+   437→    ['export_requests', 'Data export workflow', 'FK -> candidates'],
+   438→    ['parse_failures', 'LLM error logging', 'PRIMARY'],
+   439→]
+   440→t3 = make_table(['Table', 'Purpose', 'Key'], schema_table, [0.20, 0.50, 0.30])
+   441→story.append(spacer(8))
+   442→story.append(t3)
+   443→story.append(caption('Table 3: Database Schema Tables'))
+   444→
+   445→story.append(heading2('3.3 Authentication'))
+   446→story.append(body(
+   447→    'NextAuth.js provides the authentication layer with support for both Google OAuth and email/password '
+   448→    'credentials. The implementation requires a route handler at app/api/auth/[...nextauth]/route.ts that '
+   449→    'configures the providers and an authorize callback that validates credentials against the database. '
+   450→    'A middleware.ts file should enforce authentication on all protected routes, checking for the session '
+   451→    'token and redirecting unauthenticated users to the login page. Role-based access control should '
+   452→    'be implemented using the session token, distinguishing between "admin" and "candidate" roles.'
+   453→))
+   454→
+   455→story.append(heading2('3.4 Normalization System'))
+   456→story.append(body(
+   457→    'The normalization system is critical for data quality and must be implemented before any data flows '
+   458→    'into the system. It consists of three enum mapping dictionaries (EDUCATION_LEVEL_ENUMS with 6 '
+   459→    'canonical values, FUNCTION_ENUMS with 16 categories, and SECTOR_ENUMS with 21 industry sectors) and '
+   460→    'a normalizeWithWordBoundaries function that uses regex word boundaries to prevent false-positive '
+   461→    'matches. Without word-boundary matching, the string "hr" would incorrectly match "research" or '
+   462→    '"architecture" because the naive includes() check finds substrings. The implementation uses '
+   463→    'RegExp with \\b anchors to ensure only whole-word matches are accepted.'
+   464→))
+   465→
+   466→story.append(heading2('3.5 Deliverables and Acceptance Criteria'))
+   467→deliverables_1 = [
+   468→    ['D1.1', 'Next.js project scaffolded with TypeScript, all dependencies installed', 'Dev server starts without errors'],
+   469→    ['D1.2', 'MySQL database created with all 10 tables, indexes, and constraints', 'Prisma migrate succeeds, schema matches documentation'],
+   470→    ['D1.3', 'NextAuth.js login/signup working with Google and email', 'Can create account, login, logout, session persists'],
+   471→    ['D1.4', 'Consent recording on signup and CV upload', 'Consent records written with correct type and version'],
+   472→    ['D1.5', 'Normalization pipeline with word-boundary matching', 'Unit tests pass for all enum edge cases'],
+   473→    ['D1.6', 'Environment variables and deployment config', 'Deploy preview to Vercel succeeds'],
+   474→]
+   475→t4 = make_table(['ID', 'Deliverable', 'Acceptance'], deliverables_1, [0.06, 0.52, 0.42])
+   476→story.append(spacer(8))
+   477→story.append(t4)
+   478→story.append(caption('Table 4: Phase 1 Deliverables'))
+   479→
+   480→story.append(PageBreak())
+   481→
+   482→# ══════════════════════════════════════════════
+   483→# SECTION 4: PHASE 2
+   484→# ══════════════════════════════════════════════
+   485→story.append(heading1('4. Phase 2: Data Pipeline'))
+   486→story.append(hr())
+   487→
+   488→phase_header('2', 'Data Pipeline (CV and JD Processing)', 'Week 3-4 (10 working days)', [
+   489→    'Implement the LLM integration with Gemini 1.5 Flash for CV and JD extraction',
+   490→    'Build the complete CV upload flow with text extraction, LLM parsing, normalization, and storage',
+   491→    'Build the job posting flow supporting all four input methods (paste, upload, JSON, form)',
+   492→    'Implement the field similarity mapping system with the RELATED_FIELDS matrix',
+   493→    'Add LLM error handling with retry logic, exponential backoff, and manual review logging',
+   494→    'Implement the trajectory selection API with re-matching on preference change',
+   495→])
+   496→
+   497→story.append(heading2('4.1 LLM Integration'))
+   498→story.append(body(
+   499→    'The LLM integration layer wraps the Google Generative AI SDK with a parseWithRetry function that '
+   500→    'attempts up to three retries with exponential backoff (1s, 2s, 4s delays). On each attempt, the '
+   501→    'function sends the extraction prompt with the raw text, parses the JSON response, and performs basic '
+   502→    'validation checking for required fields. If all retries fail, the function logs the failure to the '
+   503→    'parse_failures table for manual review and returns an error object with _error, _message, and '
+   504→    '_raw_text fields. This ensures that no extraction failure is silently lost, and the admin can review '
+   505→    'and manually fix problematic documents.'
+   506→))
+   507→
+   508→story.append(heading2('4.2 CV Upload Flow'))
+   509→story.append(body(
+   510→    'The CV upload endpoint accepts multipart form data with the CV file and a consent confirmation. '
+   511→    'The flow proceeds through five stages: text extraction (pdf-parse for PDF files, mammoth for DOCX), '
+   512→    'LLM parsing with retry, normalization of education levels and work experience functions, database '
+   513→    'storage of the candidate profile and all child records (education array, work experience clusters, '
+   514→    'extras), and consent recording. The education array is stored in the candidate_education table as '
+   515→    'separate rows, each linked to the candidate via foreign key. Work experience clusters are similarly '
+   516→    'stored as individual rows in the candidate_clusters table with all skills and job titles serialized '
+   517→    'as JSON arrays. After successful upload, the system triggers an initial matching computation for '
+   518→    'the new candidate against all active jobs.'
+   519→))
+   520→
+   521→story.append(heading2('4.3 Job Posting (Four Input Methods)'))
+   522→story.append(body(
+   523→    'The job posting endpoint uses an input_type discriminator to route processing through the appropriate '
+   524→    'path. For "paste" type, the raw JD text is sent to the LLM for extraction. For "upload" type, the '
+   525→    'file is first processed through text extraction then through LLM extraction. For "json" type, the '
+   526→    'pre-structured JSON is validated against the job schema using Zod and then normalized without any '
+   527→    'LLM call. For "form" type, the already-structured form data is normalized directly. This conditional '
+   528→    'LLM usage is a key cost optimization: power users who paste JSON or fill forms avoid LLM costs '
+   529→    'entirely, while casual users who paste raw text or upload files get automatic extraction.'
+   530→))
+   531→
+   532→story.append(heading2('4.4 Field Similarity Mapping'))
+   533→story.append(body(
+   534→    'The field similarity mapping replaces the naive String.includes() approach with a three-tier matching '
+   535→    'system. Tier 1 checks for exact string match. Tier 2 looks up both fields in the RELATED_FIELDS '
+   536→    'matrix, which contains 12 category groups covering Business, Computing, Engineering, Health, '
+   537→    'Education, Economics, Law, Arts, Sciences, Hospitality, Construction, and Media. If both fields '
+   538→    'belong to the same category group, they are considered related. Tier 3 performs partial-word matching '
+   539→    'on multi-word field names, checking for common significant words (length greater than 3 characters) '
+   540→    'while filtering out common stopwords like "and", "of", "the", "science", and "studies". This '
+   541→    'ensures that "Commerce" matches "Business Administration" (both in the Business group) but does '
+   542→    'not match "Business Journalism" (Journalism is in the Media group).'
+   543→))
+   544→
+   545→story.append(heading2('4.5 Deliverables and Acceptance Criteria'))
+   546→deliverables_2 = [
+   547→    ['D2.1', 'LLM integration with retry logic and error logging', '3 retries with backoff, failures logged to DB'],
+   548→    ['D2.2', 'CV upload: extract, parse, normalize, store, consent', 'Upload PDF/DOCX, parsed data stored correctly'],
+   549→    ['D2.3', 'Job posting: all 4 input methods working', 'Paste, upload, JSON, form all produce valid job records'],
+   550→    ['D2.4', 'Field similarity mapping with 12-category matrix', 'All 12 test cases pass (Commerce-Business Admin true, etc.)'],
+   551→    ['D2.5', 'Trajectory selection API with max-3 validation', 'PUT endpoint validates limit, triggers re-match'],
+   552→    ['D2.6', 'Consent flow integrated into CV upload', 'Upload rejected without consent checkbox'],
+   553→]
+   554→t5 = make_table(['ID', 'Deliverable', 'Acceptance'], deliverables_2, [0.06, 0.52, 0.42])
+   555→story.append(spacer(8))
+   556→story.append(t5)
+   557→story.append(caption('Table 5: Phase 2 Deliverables'))
+   558→
+   559→story.append(PageBreak())
+   560→
+   561→# ══════════════════════════════════════════════
+   562→# SECTION 5: PHASE 3
+   563→# ══════════════════════════════════════════════
+   564→story.append(heading1('5. Phase 3: Matching Engine'))
+   565→story.append(hr())
+   566→
+   567→phase_header('3', 'Matching Engine', 'Week 5-6 (10 working days)', [
+   568→    'Implement the complete scoring algorithm with all five dimensions (title, skills, education, field, experience)',
+   569→    'Build the scalable background matching cron job using function-indexed queries',
+   570→    'Implement explanation generation for every match to provide transparency to candidates',
+   571→    'Build the re-matching system that triggers when candidates change trajectory preferences',
+   572→    'Implement the match results API endpoint for the candidate dashboard to consume',
+   573→    'Test the matching engine with realistic Kenyan CV and JD data for accuracy validation',
+   574→])
+   575→
+   576→story.append(heading2('5.1 Scoring Algorithm'))
+   577→story.append(body(
+   578→    'The matching algorithm operates in two stages. The first stage is a function-based gateway filter: '
+   579→    'a job is only shown to a candidate if at least one of the candidate\'s selected career clusters has '
+   580→    'a matching job function enum. This filter is implemented as a database JOIN between the '
+   581→    'candidate_clusters table (filtered by selected=TRUE and the specific function enum) and the jobs '
+   582→    'table. Jobs that pass the gateway filter proceed to the second stage, which calculates a '
+   583→    'weighted score across five dimensions.'
+   584→))
+   585→story.append(body(
+   586→    'The job title dimension (40 points) checks for exact match first, awarding full points if any '
+   587→    'of the cluster\'s job titles exactly equals the job title. If no exact match exists, it falls '
+   588→    'back to keyword overlap scoring, counting shared words between the job title and the cluster\'s '
+   589→    'title array, capped at 20 points. The skills dimension (35 points) calculates the percentage of '
+   590→    'required skills present in the candidate\'s skill set, using case-insensitive exact matching. The '
+   591→    'education level dimension (15 points) compares the candidate\'s highest education level against the '
+   592→    'job requirement using a tiered scoring system: full points if the candidate exceeds the requirement, '
+   593→    '70% if one level below, 30% if two levels below, and zero otherwise. The education field bonus '
+   594→    '(5 points) uses the field similarity mapping to check if any of the candidate\'s education fields '
+   595→    'are related to the job\'s required field. The experience dimension (10 points) calculates the '
+   596→    'ratio of candidate years to required years, capped at 1.0 to prevent over-experience penalties.'
+   597→))
+   598→
+   599→score_table = [
+   600→    ['Job Title Match', '40', 'Exact or partial keyword overlap', 'Highest weight - role alignment'],
+   601→    ['Skills Match', '35', 'Percentage of required skills present', 'Percentage of required skills found'],
+   602→    ['Education Level', '15', 'Candidate meets or exceeds requirement', 'Tiered: 100%, 70%, 30%, 0%'],
+   603→    ['Education Field', '5', 'Bonus for related field', 'Uses RELATED_FIELDS matrix'],
+   604→    ['Experience Years', '10', 'Candidate years vs. required years', 'Ratio capped at 1.0'],
+   605→]
+   606→t6 = make_table(['Dimension', 'Points', 'Method', 'Notes'], score_table, [0.16, 0.08, 0.38, 0.38])
+   607→story.append(spacer(8))
+   608→story.append(t6)
+   609→story.append(caption('Table 6: Matching Score Dimensions'))
+   610→
+   611→story.append(heading2('5.2 Background Matching Cron Job'))
+   612→story.append(body(
+   613→    'The background matching job is designed for scalability from the outset. Rather than fetching '
+   614→    'all candidates and comparing against all jobs (an O(N*M) operation), the cron job uses a '
+   615→    'function-indexed query strategy. For each new or recently updated job, it queries only the '
+   616→    'candidates whose selected clusters match the job\'s function enum. This reduces the comparison '
+   617→    'set dramatically: instead of comparing 10,000 candidates against every job, the system only '
+   618→    'evaluates the subset of candidates who have indicated relevant experience in that specific function.'
+   619→))
+   620→story.append(body(
+   621→    'The cron job implementation supports two deployment options. The primary option uses GitHub Actions '
+   622→    'with a cron schedule of */5 * * * * (every 5 minutes) and a manual workflow_dispatch trigger for '
+   623→    'on-demand execution. The script uses npx ts-node to run the TypeScript matching script, which '
+   624→    'queries jobs posted in the last hour, performs the function-indexed candidate lookup, calculates '
+   625→    'scores, and upserts results into the job_matches table using ON DUPLICATE KEY UPDATE. The secondary '
+   626→    'option uses Vercel Cron Jobs with an API endpoint protected by a Bearer token authentication check. '
+   627→    'Both options require the CRON_SECRET environment variable for authorization.'
+   628→))
+   629→
+   630→story.append(heading2('5.3 Explanation Generation'))
+   631→story.append(body(
+   632→    'Every match record includes a human-readable explanation string that tells the candidate why the job '
+   633→    'was recommended. The explanation starts with the primary career identity (e.g., "This job matches '
+   634→    'your experience as an Admin Assistant"), then appends matched skills (up to 3 named skills plus a '
+   635→    'count of additional matches). This explanation is generated at match computation time and stored '
+   636→    'in the explanation column of the job_matches table, so it requires no computation when the candidate '
+   637→    'views their dashboard. The explanation provides transparency and builds trust in the matching system.'
+   638→))
+   639→
+   640→story.append(heading2('5.4 Deliverables and Acceptance Criteria'))
+   641→deliverables_3 = [
+   642→    ['D3.1', 'Complete scoring algorithm (all 5 dimensions)', 'Scores fall within 0-100 range, edge cases handled'],
+   643→    ['D3.2', 'Background cron job with function-indexed queries', 'GitHub Actions cron runs every 5 min, Vercel fallback works'],
+   644→    ['D3.3', 'Match explanation generation', 'Every match record has human-readable explanation'],
+   645→    ['D3.4', 'Trajectory change triggers re-matching', 'Changing trajectories deletes old matches, creates new ones'],
+   646→    ['D3.5', 'Match results API endpoint', 'GET /candidates/[id]/matches returns ranked matches'],
+   647→    ['D3.6', 'Accuracy validation with real data', '10 sample Kenyan CVs produce expected match results'],
+   648→]
+   649→t7 = make_table(['ID', 'Deliverable', 'Acceptance'], deliverables_3, [0.06, 0.52, 0.42])
+   650→story.append(spacer(8))
+   651→story.append(t7)
+   652→story.append(caption('Table 7: Phase 3 Deliverables'))
+   653→
+   654→story.append(PageBreak())
+   655→
+   656→# ══════════════════════════════════════════════
+   657→# SECTION 6: PHASE 4
+   658→# ══════════════════════════════════════════════
+   659→story.append(heading1('6. Phase 4: User Interface (Candidate Experience)'))
+   660→story.append(hr())
+   661→
+   662→phase_header('4', 'User Interface (Candidate Experience)', 'Week 7-8 (10 working days)', [
+   663→    'Build the landing page with value proposition and sign-up flow',
+   664→    'Build the candidate onboarding flow: CV upload, trajectory selection, and consent',
+   665→    'Build the candidate dashboard with ranked matches, filters, and sorting',
+   666→    'Build the job detail page with match explanation, skill breakdown, and apply/save actions',
+   667→    'Implement location display as informational context (never as a filter)',
+   668→    'Ensure responsive design for mobile-first access given the Kenyan mobile usage patterns',
+   669→])
+   670→
+   671→story.append(heading2('6.1 Landing Page'))
+   672→story.append(body(
+   673→    'The landing page communicates the platform\'s core value proposition: "We open doors, we do not '
+   674→    'close them." It should feature a clean, uncluttered design with a clear call-to-action for '
+   675→    'candidate registration and a separate entry point for admin login. The page should briefly explain '
+   676→    'how the platform works (upload CV, get matched, apply for jobs) and address common concerns about '
+   677→    'data privacy. Given that a significant portion of Kenyan job seekers access the internet primarily '
+   678→    'through mobile devices, the landing page must be fully responsive with a mobile-first design '
+   679→    'approach. Load time should be optimized since many users will be on slower mobile connections.'
+   680→))
+   681→
+   682→story.append(heading2('6.2 Candidate Onboarding'))
+   683→story.append(body(
+   684→    'The onboarding flow guides new candidates through three steps after account creation. First, the CV '
+   685→    'upload step accepts PDF or DOCX files, displays a consent checkbox for data processing, and triggers '
+   686→    'the extraction pipeline. Second, the trajectory selection step presents the LLM-extracted work '
+   687→    'experience clusters with their functions, years of experience, representative companies, and key '
+   688→    'skills. Candidates can select up to three clusters to focus on, with a clear explanation that '
+   689→    'changing these preferences later is possible. Third, the system triggers initial matching and '
+   690→    'redirects to the dashboard. Each step should have a "Skip for Now" option so that candidates '
+   691→    'can complete onboarding quickly and return to configure preferences later.'
+   692→))
+   693→
+   694→story.append(heading2('6.3 Candidate Dashboard'))
+   695→story.append(body(
+   696→    'The candidate dashboard is the primary engagement surface of the platform. It displays the '
+   697→    'candidate\'s selected focus areas at the top, followed by a ranked list of matching jobs. Each '
+   698→    'job card shows the match percentage, company name, sector, location (as informational context, '
+   699→    'never as a filter), and the match explanation snippet. The dashboard should support basic '
+   700→    'filtering (by sector, job type, match score range) and sorting (by score, date, company). Location '
+   701→    'information is displayed as contextual data: for example, a candidate in Nairobi seeing a Mombasa '
+   702→    'job would see the distance or a note like "You are in Nairobi - 480km away." This follows the '
+   703→    'platform philosophy that location is the candidate\'s decision, not the platform\'s filter.'
+   704→))
+   705→
+   706→story.append(heading2('6.4 Job Detail Page'))
+   707→story.append(body(
+   708→    'The job detail page provides a comprehensive view of a matched job alongside the match explanation. '
+   709→    'The page is divided into four sections: the job header (title, company, sector, location, type), '
+   710→    'the match analysis (score breakdown showing which dimensions matched and which did not), the full '
+   711→    'job description with requirements, and action buttons (Apply Now, Save Job, View Similar Jobs). '
+   712→    'The match analysis section should be visually prominent, using a checklist format with green '
+   713→    'checkmarks for matched criteria and warning indicators for missing skills. This transparency helps '
+   714→    'candidates understand their fit for the role and identify skill gaps to address before applying.'
+   715→))
+   716→
+   717→story.append(heading2('6.5 Deliverables and Acceptance Criteria'))
+   718→deliverables_4 = [
+   719→    ['D4.1', 'Landing page with sign-up flow', 'Mobile responsive, loads in under 3 seconds on 3G'],
+   720→    ['D4.2', 'Onboarding: CV upload + trajectory selection', 'Can upload CV, see clusters, select 3, skip available'],
+   721→    ['D4.3', 'Candidate dashboard with ranked matches', 'Matches display in order, filters work, location shows as info'],
+   722→    ['D4.4', 'Job detail page with match explanation', 'Score breakdown, skill checklist, apply/save buttons work'],
+   723→    ['D4.5', 'Responsive design across all pages', 'Works on mobile (375px), tablet, and desktop'],
+   724→    ['D4.6', 'Navigation: profile, applications, privacy', 'All nav links point to functional pages'],
+   725→]
+   726→t8 = make_table(['ID', 'Deliverable', 'Acceptance'], deliverables_4, [0.06, 0.52, 0.42])
+   727→story.append(spacer(8))
+   728→story.append(t8)
+   729→story.append(caption('Table 8: Phase 4 Deliverables'))
+   730→
+   731→story.append(PageBreak())
+   732→
+   733→# ══════════════════════════════════════════════
+   734→# SECTION 7: PHASE 5
+   735→# ══════════════════════════════════════════════
+   736→story.append(heading1('7. Phase 5: Admin Portal, Privacy, and Production'))
+   737→story.append(hr())
+   738→
+   739→phase_header('5', 'Admin Portal, Privacy, and Production', 'Week 9-10 (10 working days)', [
+   740→    'Build the admin dashboard with the four-method job posting interface',
+   741→    'Implement the privacy center with data export and account deletion workflows',
+   742→    'Write unit tests and integration tests for the matching engine and API endpoints',
+   743→    'Perform performance optimization, query analysis, and caching implementation',
+   744→    'Deploy to production with monitoring, error tracking, and security hardening',
+   745→    'Complete API documentation and user-facing guides',
+   746→])
+   747→
+   748→story.append(heading2('7.1 Admin Dashboard'))
+   749→story.append(body(
+   750→    'The admin dashboard serves two primary functions: job posting and application management. The '
+   751→    'job posting interface presents four clearly labeled input methods in a tabbed or card-based '
+   752→    'layout. The "Paste JD" tab provides a large text area where admins can paste raw job descriptions, '
+   753→    'with an "Auto-Extract" button that triggers LLM parsing and populates the form fields below. The '
+   754→    '"Upload File" tab accepts PDF and DOCX uploads with the same auto-extract flow. The "Paste JSON" '
+   755→    'tab targets power users who generate structured JSON from external tools like ChatGPT or DeepSeek, '
+   756→    'with JSON validation and error highlighting. The "Fill Form" tab provides the complete manual entry '
+   757→    'form with dropdown selects for all enum fields (sector, function, job type, education level), text '
+   758→    'inputs for required skills (with tag-style input), and date pickers for deadlines.'
+   759→))
+   760→story.append(body(
+   761→    'After a job is posted through any method, the system normalizes the data, stores it in the '
+   762→    'database, and triggers the background matching job. The admin should see a confirmation message '
+   763→    'with the job ID and a link to preview the job listing. The application management section shows '
+   764→    'all submitted applications with the candidate\'s profile, match score, and application status '
+   765→    '(pending, reviewed, shortlisted, rejected, hired). Admins can update application statuses and '
+   766→    'add internal notes visible only to the admin team.'
+   767→))
+   768→
+   769→story.append(heading2('7.2 Privacy Center'))
+   770→story.append(body(
+   771→    'The privacy center provides three DPA-mandated features. The data export endpoint compiles all '
+   772→    'of a candidate\'s stored data (profile, education, work experience clusters, extras) into a single '
+   773→    'JSON object, creates an export record with a 7-day expiry, and returns the data for download. '
+   774→    'The account deletion endpoint requires the user to type "DELETE" for confirmation, initiates a '
+   775→    'soft-delete by setting is_active to FALSE and deleted_at to the current timestamp, removes the '
+   776→    'candidate from all match results, and creates a deletion request record with a 30-day pending '
+   777→    'status. After 30 days, a monthly cleanup cron job permanently purges soft-deleted accounts and all '
+   778→    'their associated data. The consent management section shows a history of all consent actions '
+   779→    '(signup, CV upload, marketing, data processing) with timestamps and versions.'
+   780→))
+   781→
+   782→story.append(heading2('7.3 Testing Strategy'))
+   783→story.append(body(
+   784→    'Testing should cover three levels. Unit tests (using Jest) should validate individual functions: '
+   785→    'the normalization pipeline (ensuring "BSc" maps to "Bachelor", "hr" does not match "research"), '
+   786→    'the scoring algorithm (ensuring scores are within 0-100, edge cases for missing data produce '
+   787→    'partial scores rather than zero), and the field similarity mapping (the 12 test cases from the '
+   788→    'technical documentation). Integration tests should validate API endpoints end-to-end: upload a CV, '
+   789→    'verify database records, post a job, verify matching results. End-to-end tests should simulate '
+   790→    'a complete user journey: register, upload CV, select trajectories, view matches, apply for a job, '
+   791→    'export data, delete account.'
+   792→))
+   793→
+   794→story.append(heading2('7.4 Production Readiness'))
+   795→story.append(body(
+   796→    'Production deployment requires several final checks. Database query optimization should identify '
+   797→    'slow queries (particularly the matching cron job) and add appropriate composite indexes. Security '
+   798→    'hardening should include rate limiting on API endpoints, CSRF protection, input sanitization, and '
+   799→    'SQL injection prevention (mitigated by Prisma\'s parameterized queries). Error tracking should be '
+   800→    'configured using a service like Sentry or equivalent, with alerts for LLM extraction failures '
+   801→    'exceeding a threshold. The deployment should target Vercel for the frontend and API routes, with '
+   802→    'a managed MySQL instance (PlanetScale, Amazon RDS, or equivalent) for the database. Environment '
+   803→    'variables should be configured through Vercel\'s dashboard, never committed to the repository.'
+   804→))
+   805→
+   806→story.append(heading2('7.5 Deliverables and Acceptance Criteria'))
+   807→deliverables_5 = [
+   808→    ['D5.1', 'Admin dashboard with 4-method job posting', 'All 4 methods create valid job records'],
+   809→    ['D5.2', 'Privacy center: export, delete, consent history', 'Export returns JSON, delete soft-removes account'],
+   810→    ['D5.3', 'Unit tests: normalization, scoring, field mapping', 'All tests pass, coverage exceeds 80%'],
+   811→    ['D5.4', 'Integration tests: CV upload, job post, matching', 'Full pipeline tested end-to-end'],
+   812→    ['D5.5', 'Performance: matching cron under 30 seconds', '10K candidates, 100 jobs matched in under 30s'],
+   813→    ['D5.6', 'Production deployment with monitoring', 'Live on Vercel, error tracking active'],
+   814→]
+   815→t9 = make_table(['ID', 'Deliverable', 'Acceptance'], deliverables_5, [0.06, 0.52, 0.42])
+   816→story.append(spacer(8))
+   817→story.append(t9)
+   818→story.append(caption('Table 9: Phase 5 Deliverables'))
+   819→
+   820→story.append(PageBreak())
+   821→
+   822→# ══════════════════════════════════════════════
+   823→# SECTION 8: CROSS-PHASE DEPENDENCIES
+   824→# ══════════════════════════════════════════════
+   825→story.append(heading1('8. Cross-Phase Dependencies'))
+   826→story.append(hr())
+   827→
+   828→story.append(body(
+   829→    'Understanding the dependencies between phases is critical for planning sprints and allocating '
+   830→    'developer resources. The following dependency map shows which deliverables from earlier phases '
+   831→    'are required before specific tasks in later phases can begin. Tasks within the same phase can '
+   832→    'generally be parallelized, but cross-phase dependencies create a sequential ordering constraint.'
+   833→))
+   834→
+   835→dep_data = [
+   836→    ['D1.2 (Database Schema)', 'D2.2 (CV Upload)', 'Cannot store CV data without tables'],
+   837→    ['D1.3 (Authentication)', 'D2.2 (CV Upload)', 'CV upload requires authenticated session'],
+   838→    ['D1.5 (Normalization)', 'D2.2 (CV Upload)', 'CV data must be normalized before storage'],
+   839→    ['D2.1 (LLM Integration)', 'D2.3 (Job Posting)', 'Job parsing reuses the LLM retry logic'],
+   840→    ['D2.4 (Field Mapping)', 'D3.1 (Scoring Algorithm)', 'Education field bonus uses field mapping'],
+   841→    ['D2.2/D2.3 (Data Storage)', 'D3.2 (Cron Job)', 'Matching requires candidate and job data in DB'],
+   842→    ['D1.2 (Database Schema)', 'D3.2 (Cron Job)', 'job_matches table must exist'],
+   843→    ['D3.5 (Match API)', 'D4.3 (Dashboard)', 'Dashboard fetches matches from the API'],
+   844→    ['D3.3 (Explanations)', 'D4.4 (Job Detail)', 'Job detail page shows explanation text'],
+   845→    ['D1.4 (Consent Records)', 'D5.2 (Privacy Center)', 'Privacy features need consent infrastructure'],
+   846→    ['D4.3 (Dashboard)', 'D5.3 (Testing)', 'Integration tests need a functional UI'],
+   847→]
+   848→t10 = make_table(['Depends On', 'Enables', 'Reason'], dep_data, [0.22, 0.22, 0.56])
+   849→story.append(spacer(8))
+   850→story.append(t10)
+   851→story.append(caption('Table 10: Cross-Phase Dependency Map'))
+   852→
+   853→story.append(heading2('8.1 Parallelization Opportunities'))
+   854→story.append(body(
+   855→    'While the phases are sequential, individual tasks within each phase can be parallelized across '
+   856→    'a team of two to three developers. In Phase 1, the database schema, authentication, and '
+   857→    'normalization system can be developed in parallel since they are independent components. In Phase 2, '
+   858→    'the CV upload flow and job posting flow share the LLM integration layer but diverge in their '
+   859→    'specific handling, so one developer can focus on the CV path while another works on the JD path. '
+   860→    'In Phase 3, the scoring algorithm and the cron job infrastructure can be developed in parallel '
+   861→    'if the database schema is already in place. In Phase 4, the landing page, onboarding flow, '
+   862→    'dashboard, and job detail page can be split across developers since they are separate UI components '
+   863→    'that consume the same API endpoints.'
+   864→))
+   865→
+   866→story.append(PageBreak())
+   867→
+   868→# ══════════════════════════════════════════════
+   869→# SECTION 9: RISK REGISTER
+   870→# ══════════════════════════════════════════════
+   871→story.append(heading1('9. Risk Register and Mitigations'))
+   872→story.append(hr())
+   873→
+   874→story.append(body(
+   875→    'Every project carries risks that could delay delivery or reduce quality. This section identifies '
+   876→    'the most significant risks for the build plan and describes specific mitigation strategies that '
+   877→    'should be proactively implemented rather than reactively addressed.'
+   878→))
+   879→
+   880→risk_data = [
+   881→    ['R1', 'LLM Extraction Inaccuracy', 'HIGH', 'MEDIUM',
+   882→     'The LLM may misclassify functions or extract incorrect data from poorly formatted Kenyan CVs',
+   883→     'The word-boundary normalization catches common misclassifications. The parse_failures table '
+   884→     'logs all failures for manual review. The consent flow allows candidates to edit their extracted '
+   885→     'profile. Budget 2-3 days for manual review of the first 100 extractions.'],
+   886→    ['R2', 'Normalization False Positives', 'MEDIUM', 'LOW',
+   887→     'The normalization enum matching may incorrectly map variants',
+   888→     'Word-boundary regex prevents substring false matches. Unit tests cover all documented edge '
+   889→     'cases. The RELATED_FIELDS matrix with stopwords filtering handles field similarity.'],
+   890→    ['R3', 'Matching Scalability', 'MEDIUM', 'MEDIUM',
+   891→     'The N-squared matching problem as candidates and jobs grow',
+   892→     'Function-indexed queries reduce the comparison set dramatically. Incremental matching (only '
+   893→     'jobs from the last hour) limits the per-run workload. Composite indexes on function and selected '
+   894→     'fields ensure query performance. Monitor query times and add query caching if needed.'],
+   895→    ['R4', 'DPA Compliance Gaps', 'LOW', 'HIGH',
+   896→     'The platform handles personal data subject to Kenya\'s Data Protection Act',
+   897→     'Consent flows are implemented at signup and CV upload. Data export and deletion APIs are '
+   898→     'available. Soft-delete with 30-day grace period is implemented. Monthly cleanup cron job handles '
+   899→     'retention. Consult a DPA expert before launch for compliance audit.'],
+   900→    ['R5', 'Kenyan Mobile Network Latency', 'MEDIUM', 'LOW',
+   901→     'Users on slow mobile connections may have poor experience',
+   902→     'Mobile-first responsive design minimizes bandwidth usage. API responses should be paginated '
+   903→     'and compressed. Static assets should be served through Vercel\'s CDN. Landing page should '
+   904→     'load in under 3 seconds on 3G connections.'],
+   905→]
+   906→t11 = make_table(['ID', 'Risk', 'Likelihood', 'Impact', 'Description', 'Mitigation'],
+   907→    risk_data, [0.04, 0.10, 0.07, 0.06, 0.27, 0.46])
+   908→story.append(spacer(8))
+   909→story.append(t11)
+   910→story.append(caption('Table 11: Risk Register'))
+   911→
+   912→story.append(PageBreak())
+   913→
+   914→# ══════════════════════════════════════════════
+   915→# SECTION 10: TEAM AND EFFORT
+   916→# ══════════════════════════════════════════════
+   917→story.append(heading1('10. Team Composition and Effort Estimates'))
+   918→story.append(hr())
+   919→
+   920→story.append(heading2('10.1 Recommended Team'))
+   921→story.append(body(
+   922→    'The recommended team composition for this build is two full-stack developers with experience in '
+   923→    'Next.js, TypeScript, and MySQL. Both developers should be comfortable working across the full '
+   924→    'stack since the project uses Next.js API routes rather than a separate backend service. One '
+   925→    'developer should have stronger frontend/UI skills (for Phases 4 and 5), while the other should '
+   926→    'have stronger backend/data skills (for Phases 2 and 3). A part-time DevOps resource should be '
+   927→    'available for deployment and infrastructure setup in Phase 5. An optional QA resource can assist '
+   928→    'with test writing and manual testing in Phases 3-5.'
+   929→))
+   930→
+   931→team_data = [
+   932→    ['Full-Stack Developer 1', 'Phases 1-5', 'Backend focus: DB, API, matching, cron jobs', 'Full-time, 10 weeks'],
+   933→    ['Full-Stack Developer 2', 'Phases 1-5', 'Frontend focus: UI components, responsive design', 'Full-time, 10 weeks'],
+   934→    ['DevOps (part-time)', 'Phase 5 only', 'Vercel deployment, MySQL provisioning, monitoring', 'Part-time, 2 weeks'],
+   935→    ['QA (optional)', 'Phases 3-5', 'Test writing, manual testing, regression testing', 'Part-time, 4 weeks'],
+   936→]
+   937→t12 = make_table(['Role', 'Phases', 'Focus Area', 'Commitment'], team_data, [0.22, 0.14, 0.38, 0.26])
+   938→story.append(spacer(8))
+   939→story.append(t12)
+   940→story.append(caption('Table 12: Recommended Team Composition'))
+   941→
+   942→story.append(heading2('10.2 Effort Summary'))
+   943→
+   944→effort_data = [
+   945→    ['Phase 1: Foundation', 'Week 1-2', '2 devs', '10 person-days'],
+   946→    ['Phase 2: Data Pipeline', 'Week 3-4', '2 devs', '20 person-days'],
+   947→    ['Phase 3: Matching Engine', 'Week 5-6', '2 devs', '20 person-days'],
+   948→    ['Phase 4: Candidate UI', 'Week 7-8', '2 devs', '20 person-days'],
+   949→    ['Phase 5: Admin + Production', 'Week 9-10', '2 devs + part-time ops', '22 person-days'],
+   950→    ['', '', 'TOTAL', '92 person-days'],
+   951→]
+   952→t13 = make_table(['Phase', 'Timeline', 'Resources', 'Effort'], effort_data, [0.22, 0.14, 0.22, 0.22])
+   953→story.append(spacer(8))
+   954→story.append(t13)
+   955→story.append(caption('Table 13: Effort Summary'))
+   956→
+   957→story.append(spacer(16))
+   958→
+   959→# Timeline visualization
+   960→timeline_data = [
+   961→    ['Phase 1', 'Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10'],
+   962→    ['Foundation', '', '', '', '', '', '', '', '', '', '', ''],
+   963→    ['Data Pipeline', '', '', '', '', '', '', '', '', '', '', ''],
+   964→    ['Matching', '', '', '', '', '', '', '', '', '', '', ''],
+   965→    ['Candidate UI', '', '', '', '', '', '', '', '', '', '', ''],
+   966→    ['Admin + Prod', '', '', '', '', '', '', '', '', '', '', ''],
+   967→]
+   968→for row_data in timeline_data:
+   969→    pass
+   970→
+   971→story.append(heading2('10.3 Milestone Checkpoints'))
+   972→story.append(body(
+   973→    'Each phase concludes with a formal milestone review where the deliverables are verified against '
+   974→    'the acceptance criteria defined in each phase section. Milestone reviews should include a demo '
+   975→    'of the working features, a review of any test failures or known issues, and a go/no-go decision '
+   976→    'for proceeding to the next phase. The following milestones are defined:'
+   977→))
+   978→
+   979→milestones = [
+   980→    ['M1', 'End of Phase 1', 'Project runs locally, auth works, DB schema is complete, normalization tests pass'],
+   981→    ['M2', 'End of Phase 2', 'CV upload produces correct parsed data, job posting works with all 4 methods, consent flows work'],
+   982→    ['M3', 'End of Phase 3', 'Matching engine produces correct scores, cron job runs every 5 min, re-matching works'],
+   983→    ['M4', 'End of Phase 4', 'Candidate dashboard shows ranked matches, responsive on mobile, job detail page works'],
+   984→    ['M5', 'End of Phase 5', 'Admin can post jobs, privacy center works, tests pass, deployed to production'],
+   985→]
+   986→t14 = make_table(['Milestone', 'Checkpoint', 'Exit Criteria'], milestones, [0.08, 0.14, 0.78])
+   987→story.append(spacer(8))
+   988→story.append(t14)
+   989→story.append(caption('Table 14: Milestone Checkpoints'))
+   990→
+   991→# ── Build PDF ──
+   992→def add_page_number(canvas, doc):
+   993→    canvas.saveState()
+   994→    canvas.setFont('FreeSerif', 8)
+   995→    canvas.setFillColor(TEXT_MUTED)
+   996→    page_num = canvas.getPageNumber()
+   997→    if page_num > 1:  # Skip cover page
+   998→        canvas.drawCentredString(W / 2, 25, f'Page {page_num - 1}')
+   999→    canvas.restoreState()
+  1000→
+  1001→doc = SimpleDocTemplate(
+  1002→    OUTPUT,
+  1003→    pagesize=A4,
+  1004→    leftMargin=MARGIN,
+  1005→    rightMargin=MARGIN,
+  1006→    topMargin=MARGIN,
+  1007→    bottomMargin=MARGIN,
+  1008→    title='Job Matching Platform - Phase-by-Phase Build Plan',
+  1009→    author='Z.ai',
+  1010→    subject='Technical Implementation Plan',
+  1011→)
+  1012→
+  1013→doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+  1014→print(f"PDF generated: {OUTPUT}")
+  1015→print(f"Pages: ~20")
+  1016→

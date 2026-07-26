@@ -2200,6 +2200,16 @@ export { runMatching };
 -- DATA CONSENT & PRIVACY TABLES
 -- ============================================
 
+-- Add soft-delete columns to the candidates table.
+-- is_active = FALSE marks the account as deactivated (hidden from matching, hidden from admin lists).
+-- deleted_at timestamps the deletion request so the purge cron can find records past their 30-day grace period.
+ALTER TABLE candidates
+ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN deleted_at DATETIME NULL,
+ADD COLUMN consent_version VARCHAR(20) DEFAULT '1.0',
+ADD COLUMN consent_date DATETIME NULL,
+ADD INDEX idx_candidates_active_deleted (is_active, deleted_at);
+
 -- Consent Records
 CREATE TABLE consent_records (
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -2318,36 +2328,43 @@ import { query } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export async function POST(request: Request) {
+export async function DELETE(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     try {
         const { confirm } = await request.json();
-        
+
         if (!confirm || confirm !== 'DELETE') {
-            return Response.json({ 
-                error: 'Please type DELETE to confirm account deletion' 
+            return Response.json({
+                error: 'Please type DELETE to confirm account deletion'
             }, { status: 400 });
         }
-        
-        // Record deletion request
+
+        // Record deletion request for audit trail
         await query(
             `INSERT INTO deletion_requests (user_id, status) VALUES (?, ?)`,
             [session.user.id, 'pending']
         );
-        
-        // Trigger background deletion job
-        // Cascading delete: candidates -> clusters, extras, matches,
-        //                     consent_records, applications
-        
+
+        // Soft-delete: mark candidate inactive, schedule purge after 30-day grace period.
+        // Hard purge is performed by a monthly cron job (see Section 13.7).
+        // During the grace period the user may still log in and revoke the request.
+        await query(
+            `UPDATE candidates
+                SET is_active = FALSE,
+                    deleted_at = NOW()
+              WHERE id = ?`,
+            [session.user.id]
+        );
+
         return Response.json({
             success: true,
-            message: 'Account deletion request submitted. Your data will be permanently deleted within 30 days.'
+            message: 'Account deletion request submitted. Your data will be permanently purged within 30 days. You may revoke this request by logging in before the purge completes.'
         });
-        
+
     } catch (error) {
         return Response.json({ error: (error as Error).message }, { status: 500 });
     }
@@ -2375,6 +2392,107 @@ In the event of a personal data breach, the platform shall:
 | Consent records | 5 years from collection | Archived, then purged |
 | Raw CV text | Until account deletion or 2 years inactivity | Secure overwrite |
 | Match results | Recalculated on each match run | No permanent storage needed |
+| Soft-deleted accounts | 30-day grace period, then permanent purge | Automated cron job (daily) |
+
+Table 13.2: Data Retention Schedule
+
+### 13.7.1 Purge Cron Job Implementation
+
+The purge cron runs daily and permanently deletes candidates whose 30-day grace period has elapsed. Before purge, it records an audit trail in `deletion_requests.deleted_data` so the platform can prove compliance with DPA Section 40 (right to erasure) even after the data is gone.
+
+```typescript
+// app/cron/purge-deleted/route.ts
+// Triggered daily at 02:00 EAT via GitHub Actions / Vercel Cron.
+// Route is protected by a CRON_SECRET bearer token.
+
+import { query } from '@/lib/db';
+
+export async function GET(request: Request) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+        // Find candidates whose 30-day grace period has elapsed.
+        const expired = await query(
+            `SELECT id, email, full_name
+               FROM candidates
+              WHERE is_active = FALSE
+                AND deleted_at IS NOT NULL
+                AND deleted_at < (NOW() - INTERVAL 30 DAY)`
+        );
+
+        let purged = 0;
+        for (const candidate of expired) {
+            // 1. Capture audit trail (what is about to be deleted)
+            await query(
+                `UPDATE deletion_requests
+                    SET status = 'processing',
+                        deleted_data = JSON_OBJECT(
+                            'email', ?,
+                            'full_name', ?,
+                            'purge_date', NOW(),
+                            'cv_count', (SELECT COUNT(*) FROM candidate_clusters WHERE candidate_id = ?),
+                            'match_count', (SELECT COUNT(*) FROM job_matches WHERE candidate_id = ?)
+                        )
+                  WHERE user_id = ? AND status = 'pending'`,
+                [candidate.email, candidate.full_name, candidate.id, candidate.id, candidate.id]
+            );
+
+            // 2. Hard cascade delete (FK ON DELETE CASCADE handles child tables)
+            await query(`DELETE FROM candidates WHERE id = ?`, [candidate.id]);
+
+            // 3. Mark deletion request as completed
+            await query(
+                `UPDATE deletion_requests
+                    SET status = 'completed', completion_date = NOW()
+                  WHERE user_id = ?`,
+                [candidate.id]
+            );
+
+            purged++;
+        }
+
+        return Response.json({
+            success: true,
+            purged_count: purged,
+            checked_count: expired.length
+        });
+    } catch (error) {
+        console.error('Purge cron failed:', error);
+        return Response.json({ error: (error as Error).message }, { status: 500 });
+    }
+}
+```
+
+Listing 13.3: Daily purge cron job for completed soft-deletes
+
+### 13.7.2 Inactivity Sweep Cron Job
+
+Separate from the purge cron, an inactivity sweep runs monthly to identify candidates who have not logged in for 2 years. These candidates receive a warning email 14 days before scheduled deletion, giving them a chance to log in and reset their inactivity clock.
+
+```yaml
+# .github/workflows/data-retention.yml
+name: Data Retention Sweep
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # 1st of every month at 00:00 UTC
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger inactivity sweep
+        run: |
+          curl -X POST ${{ secrets.PROD_URL }}/api/cron/inactivity-sweep \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Trigger purge (daily, but also run on sweep day)
+        run: |
+          curl -X GET ${{ secrets.PROD_URL }}/api/cron/purge-deleted \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+```
+
+Listing 13.4: Monthly retention sweep cron configuration
 
 ---
 
@@ -2617,6 +2735,243 @@ if (job.required_education.level) {
 
 ---
 
+# 15. Appendix / Quick Reference
+
+This appendix consolidates the most-referenced decisions and data shapes into a single quick-lookup section. It is intended for engineers, QA testers, and product reviewers who need to verify behavior without re-reading the full document.
+
+## 15.1 Score Breakdown Table
+
+The matching algorithm allocates a maximum of 100 points across five dimensions. Function match is a hard requirement (filter, not scored); the remaining five dimensions contribute to the candidate's rank within the function-matched set. No single dimension can disqualify a candidate; missing data simply results in zero points for that dimension.
+
+| Dimension            | Max Points | Type        | Source                       | Disqualifies? |
+|----------------------|------------|-------------|------------------------------|---------------|
+| Job Function match   | Required   | Filter      | `candidate_clusters.function` vs `job.function` | Yes (filter)  |
+| Job Title match      | 40         | Scored      | Cluster titles vs `job.title` (word-boundary regex) | No            |
+| Skills match         | 35         | Scored      | Cluster skills ∩ `job.required_skills` (count-weighted) | No            |
+| Education Level      | 15         | Scored      | Highest candidate education level vs `job.min_education` | No            |
+| Education Field      | 5          | Scored      | `isFieldRelated()` 3-tier matrix (exact / group / partial) | No            |
+| Experience Years     | 10         | Scored      | Cluster years vs `job.min_experience` (sliding scale) | No            |
+| **Total**            | **100**    |             |                              |               |
+
+Table 15.1: Scoring Dimensions and Weights
+
+### 15.1.1 Experience Sliding Scale (10 points max)
+
+The 10 experience points are not all-or-nothing. They are awarded on a sliding scale to reward candidates who exceed the minimum without penalizing those who just meet it.
+
+| Candidate Experience vs Job Minimum    | Points Awarded |
+|----------------------------------------|----------------|
+| Meets or exceeds minimum (>= 100%)     | 10             |
+| 75% to 99% of minimum                  | 7              |
+| 50% to 74% of minimum                  | 4              |
+| 25% to 49% of minimum                  | 2              |
+| Less than 25% of minimum               | 0              |
+
+Table 15.2: Experience Points Sliding Scale
+
+### 15.1.2 Education Level Points (15 points max)
+
+Education points are awarded based on whether the candidate's highest qualification meets or exceeds the job's minimum requirement.
+
+| Candidate Level vs Job Minimum         | Points Awarded |
+|----------------------------------------|----------------|
+| Exceeds by 2+ levels                   | 15             |
+| Exceeds by 1 level                     | 13             |
+| Exactly meets minimum                  | 12             |
+| One level below minimum                | 6              |
+| Two levels below minimum               | 2              |
+| Three or more levels below             | 0              |
+
+Table 15.3: Education Level Points
+
+Education level enum order (low to high): `none` < `certificate` < `diploma` < `bachelors` < `masters` < `phd`.
+
+## 15.2 What Gets Matched vs What Gets Stored
+
+This matrix clarifies which candidate data fields are used by the matching engine versus which are stored only for the resume builder and profile display. This distinction is critical: storing data without using it for matching preserves the candidate-empowerment philosophy (we never silently filter on data the candidate didn't intend to be matched on).
+
+| Data Field                     | Stored? | Used for Matching? | Used For                                   |
+|--------------------------------|---------|--------------------|--------------------------------------------|
+| Job Function (cluster)         | Yes     | Yes (filter)       | Primary match filter                       |
+| Job Titles (cluster)           | Yes     | Yes (40 pts)       | Title match scoring                        |
+| Skills (cluster)               | Yes     | Yes (35 pts)       | Skills overlap scoring                     |
+| Education Level                | Yes     | Yes (15 pts)       | Education level scoring                    |
+| Education Field                | Yes     | Yes (5 pts)        | Field relatedness scoring                  |
+| Experience Years (cluster)     | Yes     | Yes (10 pts)       | Experience scoring                         |
+| Sector (job only)              | Yes     | Yes (job-side)     | Job metadata, displayed to candidate       |
+| Job Type (job only)            | Yes     | Yes (job-side)     | Job metadata, displayed to candidate       |
+| Certifications                 | Yes     | **No**             | Resume builder, profile display            |
+| Referees                       | Yes     | **No**             | Resume builder, shared only on application |
+| Languages spoken               | Yes     | **No**             | Profile display                            |
+| Location / County              | Yes     | **No**             | Displayed to candidate; never filters jobs |
+| Salary expectation             | Yes     | **No**             | Displayed to candidate; never filters jobs |
+| Administrative requirements    | Yes     | **No**             | Candidate self-selects at apply time       |
+| Soft skills (free text)        | Yes     | **No**             | Profile display only                       |
+| Profile photo                  | Yes     | **No**             | Profile display only                       |
+
+Table 15.4: Matched vs Stored Data Matrix
+
+The principle behind this matrix is simple: **the candidate, not the algorithm, decides whether they qualify for a job's non-functional requirements.** Location, salary, and administrative requirements are surfaced to the candidate as information; the candidate chooses whether to apply. This avoids the common platform failure mode where good candidates are silently filtered out because they live in the "wrong" county or expect slightly above the listed salary band.
+
+## 15.3 Job Input Methods Summary
+
+The platform supports four distinct ways for admins to create job postings. Two of them invoke the LLM extractor; two of them bypass it entirely. The choice of method depends on the source of the job data and the admin's preference for control versus convenience.
+
+| Method                | LLM Fires? | Input Format             | Best For                                            | Latency         | Cost per Job |
+|-----------------------|------------|--------------------------|-----------------------------------------------------|-----------------|--------------|
+| **Paste JD text**     | Yes        | Raw JD text in textarea  | Job descriptions copied from email or PDF           | 3-8 seconds     | ~$0.001      |
+| **Upload JD file**    | Yes        | PDF / DOCX / TXT file    | Job descriptions received as attachments            | 5-12 seconds    | ~$0.001      |
+| **Paste structured JSON** | No     | Pre-formatted JSON       | Programmatic import, partner integrations           | < 1 second      | $0           |
+| **Fill form manually**| No         | Form fields (selects/text) | Quick admin entry, corrections to LLM output     | < 1 second      | $0           |
+
+Table 15.5: Job Input Methods Comparison
+
+### 15.3.1 Input Method Decision Tree
+
+```
+Admin creates a new job posting
+        |
+        v
+   Is the JD already structured
+   as JSON (e.g., from a partner API)?
+        |
+   Yes--+--No
+        |     |
+        |     v
+        |   Is the JD a file
+        |   (PDF/DOCX/TXT)?
+        |     |
+        |  Yes--+--No
+        |        |     |
+        |        |     v
+        |        |   Is the JD text
+        |        |   you can copy-paste?
+        |        |     |
+        |        |  Yes--+--No
+        |        |        |     |
+        |        |        |     v
+        |        |        |  Fill form manually
+        |        |        |  (no LLM, $0)
+        |        |        |
+        |        |        v
+        |        |   Paste JD text (LLM, ~$0.001)
+        |        |
+        |        v
+        |   Upload JD file (LLM, ~$0.001)
+        |
+        v
+   Paste JSON (no LLM, $0)
+```
+
+Figure 15.1: Input Method Decision Tree
+
+### 15.3.2 JSON Input Schema (for paste-JSON method)
+
+When using the paste-JSON method, the admin provides a JSON object matching the job schema exactly. No LLM is invoked; the JSON is validated against the schema and inserted directly. This is the fastest and cheapest input method, ideal for bulk imports or partner integrations.
+
+```json
+{
+  "title": "Senior Accountant",
+  "function": "finance",
+  "sector": "financial_services",
+  "job_type": "full_time",
+  "min_education": "bachelors",
+  "education_field": "accounting",
+  "min_experience": 5,
+  "required_skills": ["accounting", "ifrs", "audit", "taxation", "quickbooks"],
+  "preferred_skills": ["sap", "hyperion"],
+  "description": "We are seeking a Senior Accountant to lead our...",
+  "location": "Nairobi, Kenya",
+  "salary_range": "KES 150,000 - 250,000",
+  "application_deadline": "2026-09-30",
+  "administrative_requirements": ["CPA K", "3 professional referees"]
+}
+```
+
+Listing 15.1: Example JSON payload for the paste-JSON input method
+
+## 15.4 API Endpoint Quick Reference
+
+The full API surface is documented in Section 9. This condensed reference lists every endpoint with its HTTP method, path, and purpose, so engineers can scan the surface area at a glance.
+
+| Method   | Path                                | Purpose                                          | Auth Required |
+|----------|-------------------------------------|--------------------------------------------------|---------------|
+| POST     | `/api/auth/callback/credentials`    | Email/password login                             | No            |
+| POST     | `/api/auth/callback/google`         | Google OAuth login                               | No            |
+| POST     | `/api/auth/register`                | New candidate signup                             | No            |
+| POST     | `/api/cv/upload`                    | Upload CV file for LLM extraction                | Candidate     |
+| GET      | `/api/cv/profile`                   | Get candidate's extracted profile                | Candidate     |
+| PUT      | `/api/cv/profile`                    | Edit extracted profile (post-LLM correction)     | Candidate     |
+| POST     | `/api/cv/trajectories`              | Save up to 3 selected career trajectories        | Candidate     |
+| GET      | `/api/jobs`                         | List active jobs (paginated)                     | Candidate     |
+| GET      | `/api/jobs/:id`                     | Get job detail + match explanation               | Candidate     |
+| POST     | `/api/jobs/:id/apply`               | Apply to a job                                   | Candidate     |
+| GET      | `/api/matches`                      | Get candidate's ranked match list                | Candidate     |
+| POST     | `/api/admin/jobs`                   | Create job (any of 4 input methods)              | Admin         |
+| PUT      | `/api/admin/jobs/:id`               | Update job posting                               | Admin         |
+| DELETE   | `/api/admin/jobs/:id`               | Deactivate job posting (soft-delete)             | Admin         |
+| GET      | `/api/admin/stats`                  | Platform statistics dashboard                    | Admin         |
+| GET      | `/api/privacy/export`               | Download candidate's data as JSON                | Candidate     |
+| DELETE   | `/api/privacy/delete`               | Request account deletion (soft-delete + 30-day purge) | Candidate |
+| GET      | `/api/privacy/consent`              | View current consent records                     | Candidate     |
+| POST     | `/api/privacy/consent`              | Update consent preferences                       | Candidate     |
+
+Table 15.6: Complete API Endpoint Reference
+
+## 15.5 Normalization Enum Quick Reference
+
+The platform uses three primary enums for matching: Education Level, Job Function, and Sector. The full canonical values are listed here for quick lookup. The normalization pipeline (Section 4) maps user-supplied variants to these canonical values using word-boundary regex.
+
+### 15.5.1 Education Levels (canonical order, low to high)
+
+```
+none -> certificate -> diploma -> bachelors -> masters -> phd
+```
+
+### 15.5.2 Job Functions (12 categories)
+
+```
+engineering, finance, marketing, sales, operations,
+human_resources, technology, design, customer_service,
+healthcare, education, legal
+```
+
+### 15.5.3 Sectors (job-only, 12 categories)
+
+```
+technology, financial_services, healthcare, education,
+manufacturing, retail, agriculture, construction,
+hospitality, government, non_profit, media
+```
+
+### 15.5.4 Job Types
+
+```
+full_time, part_time, contract, internship, temporary, freelance
+```
+
+## 15.6 Cost & Scale Reference
+
+The platform's economic model is built on the "Extract Once, Compute Many" principle. The LLM fires only at ingestion; all subsequent operations are deterministic database queries. The table below shows the projected cost and scale characteristics at three operating points.
+
+| Metric                              | Small (startup) | Medium (growth) | Large (scale)  |
+|-------------------------------------|-----------------|-----------------|----------------|
+| Active candidates                   | 1,000           | 10,000          | 100,000        |
+| Active job postings                 | 100             | 1,000           | 10,000         |
+| Monthly LLM extractions (CVs)       | 1,000           | 10,000          | 100,000        |
+| Monthly LLM extractions (JDs)       | 100             | 1,000           | 10,000         |
+| Monthly LLM cost (Gemini 1.5 Flash) | ~$1             | ~$11            | ~$110          |
+| Monthly DB cost (PlanetScale/Vercel)| ~$10            | ~$40            | ~$200          |
+| Monthly Vercel cost                 | ~$20            | ~$20            | ~$100          |
+| **Total monthly cost**              | **~$31**        | **~$71**        | **~$410**      |
+| Cost per match                      | $0              | $0              | $0             |
+| Cron job duration (5-min interval)  | < 5 sec         | < 30 sec        | < 2 min        |
+| Dashboard query latency             | < 100ms         | < 200ms         | < 500ms        |
+
+Table 15.7: Projected Cost and Scale at Three Operating Points
+
+---
+
 # Summary of Key Decisions
 
 | Decision | Status | Reasoning |
@@ -2642,6 +2997,9 @@ if (job.required_education.level) {
 | **Normalization** | Word-boundary regex | Avoids false positives |
 | **Data Privacy** | ✅ DPA Compliant | Kenya DPA 2019, consent, retention, breach notification |
 | **Field Similarity** | ✅ Predefined Matrix | Replaces naive includes() with 3-tier matching |
+| **Account Deletion** | ✅ Soft-delete | `is_active=FALSE` + 30-day purge window, user can revoke |
+| **DELETE Method** | ✅ REST-correct | Privacy delete endpoint uses HTTP DELETE (not POST) |
+| **Appendix (Sec 15)** | ✅ Added | Quick reference for scores, data matrix, API surface |
 
 ---
 
@@ -2652,10 +3010,5 @@ if (job.required_education.level) {
 | 1.0 | April 2026 | Initial documentation |
 | 2.0 | May 2026 | Added normalization, matching algorithm, database schema |
 | 3.0 | May 2026 | Added authentication, education as array, word-boundary matching, LLM error handling, scalable matching, 4 input methods for jobs |
-| 4.0 | July 2026 | Added data privacy & DPA compliance (Section 13), field similarity mapping (Section 14), breach notification, data retention policy |
+| 4.0 | July 2026 | Added data privacy & DPA compliance (Section 13), field similarity mapping (Section 14), breach notification, data retention policy, Appendix / Quick Reference (Section 15), soft-delete with 30-day grace period, REST-correct DELETE endpoint |
 
----
-
-## End of Documentation
-
-*This documentation reflects all decisions made during the design phase. Any future changes should be documented and versioned accordingly.*
