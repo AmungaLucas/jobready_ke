@@ -1,0 +1,449 @@
+// ============================================================================
+// Job Matching Platform - Prisma Schema
+// Based on Technical Documentation v4.0
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS (SQLite doesn't have native enums; Prisma enforces at app layer)
+// ============================================================================
+
+enum UserRole {
+  CANDIDATE
+  ADMIN
+}
+
+enum EducationLevel {
+  none
+  certificate
+  diploma
+  bachelors
+  masters
+  phd
+}
+
+enum JobFunction {
+  engineering
+  finance
+  marketing
+  sales
+  operations
+  human_resources
+  technology
+  design
+  customer_service
+  healthcare
+  education
+  legal
+}
+
+enum Sector {
+  technology
+  financial_services
+  healthcare
+  education
+  manufacturing
+  retail
+  agriculture
+  construction
+  hospitality
+  government
+  non_profit
+  media
+}
+
+enum JobType {
+  full_time
+  part_time
+  contract
+  internship
+  temporary
+  freelance
+}
+
+enum ConsentType {
+  signup
+  cv_upload
+  marketing
+  data_processing
+}
+
+enum DeletionStatus {
+  pending
+  processing
+  completed
+  cancelled
+}
+
+enum ExportStatus {
+  pending
+  processing
+  completed
+}
+
+enum ApplicationStatus {
+  draft
+  submitted
+  in_review
+  withdrawn
+  rejected
+  offered
+  hired
+}
+
+enum MatchExplanation {
+  exact_function_match
+  strong_skill_overlap
+  education_meets_minimum
+  education_field_related
+  experience_meets_minimum
+  title_keyword_overlap
+}
+
+// ============================================================================
+// USERS & AUTH
+// ============================================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  role          UserRole @default(CANDIDATE)
+  passwordHash  String?
+  image         String?
+  emailVerified DateTime?
+  isActive      Boolean  @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  candidate     Candidate?
+  consentRecords    ConsentRecord[]
+  deletionRequests  DeletionRequest[]
+  exportRequests    ExportRequest[]
+
+  @@index([role, isActive])
+  @@index([deletedAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// CANDIDATE PROFILE
+// ============================================================================
+
+model Candidate {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  fullName        String
+  phone           String?
+  county          String?  // Kenyan county (location, never used for matching)
+  profilePicture  String?
+  // Soft-delete per Section 13.4
+  isActive        Boolean  @default(true)
+  deletedAt       DateTime?
+  consentVersion  String   @default("1.0")
+  consentDate     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  education        EducationRecord[]
+  clusters         WorkExperienceCluster[]
+  extras           CandidateExtra[]
+  matches          JobMatch[]
+  applications     Application[]
+  savedJobs        SavedJob[]
+  consentRecords   ConsentRecord[]
+  deletionRequests DeletionRequest[]
+  exportRequests   ExportRequest[]
+
+  @@index([isActive, deletedAt])
+  @@index([county])
+}
+
+// Education is an array per Section 3.1 (candidates often have multiple qualifications)
+model EducationRecord {
+  id            String          @id @default(cuid())
+  candidateId   String
+  level         EducationLevel
+  field         String          // e.g. "Commerce", "Computer Science"
+  institution   String?
+  graduationYear Int?
+  createdAt     DateTime        @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId, level])
+  @@index([field])
+}
+
+// ============================================================================
+// WORK EXPERIENCE CLUSTERS (key innovation: candidates have up to 3 trajectories)
+// ============================================================================
+
+model WorkExperienceCluster {
+  id             String      @id @default(cuid())
+  candidateId    String
+  function       JobFunction
+  jobTitles      String      // JSON array: ["Accountant", "Senior Accountant"]
+  skills         String      // JSON array: ["accounting", "ifrs", "audit"]
+  yearsExperience Int
+  // The candidate selects up to 3 clusters as active trajectories for matching
+  isSelected     Boolean     @default(false)
+  // Original raw work experience entries that were clustered
+  rawExperiences  String      // JSON array of original jobs
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  candidate Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  matches   JobMatch[]
+
+  @@index([candidateId, isSelected])
+  @@index([function, isSelected])
+}
+
+// Extras: stored for resume builder, NOT used for matching (Section 3.2)
+model CandidateExtra {
+  id          String   @id @default(cuid())
+  candidateId String
+  type        String   // 'certification' | 'language' | 'referee' | 'soft_skill'
+  value       String   // JSON or plain text
+  createdAt   DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId, type])
+}
+
+// ============================================================================
+// JOBS
+// ============================================================================
+
+model Job {
+  id                    String       @id @default(cuid())
+  title                 String
+  function              JobFunction
+  sector                Sector
+  jobType               JobType
+  minEducation          EducationLevel
+  educationField        String       // e.g. "Accounting", "Computer Science"
+  minExperience         Int          // years
+  requiredSkills        String       // JSON array
+  preferredSkills       String?      // JSON array
+  description           String
+  location              String?
+  salaryRange           String?
+  applicationDeadline   DateTime?
+  administrativeRequirements String?  // JSON array, candidate self-selects
+  // Source: which input method created this job
+  inputMethod           String       @default("form") // 'paste_text' | 'upload_file' | 'paste_json' | 'form'
+  // Lifecycle
+  isActive              Boolean      @default(true)
+  deletedAt             DateTime?
+  postedBy              String       // admin userId
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  matches      JobMatch[]
+  applications Application[]
+  savedJobs    SavedJob[]
+
+  @@index([function, isActive])
+  @@index([sector, jobType, isActive])
+  @@index([isActive, createdAt])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// MATCHES (pre-computed by cron job)
+// ============================================================================
+
+model JobMatch {
+  id               String   @id @default(cuid())
+  candidateId      String
+  jobId            String
+  matchedClusterId String?
+  // Score breakdown (max 100)
+  totalScore       Int      // 0-100
+  titleScore       Int      // 0-40
+  skillsScore      Int      // 0-35
+  educationScore   Int      // 0-15
+  fieldScore       Int      // 0-5
+  experienceScore  Int      // 0-10
+  // Explanation: which dimensions matched
+  explanations     String   // JSON array of MatchExplanation
+  computedAt       DateTime @default(now())
+  // For incremental matching: track if this match needs recompute
+  stale            Boolean  @default(false)
+
+  candidate Candidate              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job      Job                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  cluster  WorkExperienceCluster?  @relation(fields: [matchedClusterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([candidateId, jobId, matchedClusterId])
+  @@index([candidateId, totalScore])
+  @@index([jobId, totalScore])
+  @@index([stale, computedAt])
+}
+
+// ============================================================================
+// APPLICATIONS & SAVED JOBS
+// ============================================================================
+
+model Application {
+  id          String           @id @default(cuid())
+  candidateId String
+  jobId       String
+  status      ApplicationStatus @default(draft)
+  // Snapshot of subscription state at creation (for cross-state policy)
+  subscriptionStateAtCreation String?
+  coverLetter String?
+  appliedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job      Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([candidateId, status])
+  @@index([jobId, status])
+}
+
+model SavedJob {
+  id          String   @id @default(cuid())
+  candidateId String
+  jobId       String
+  createdAt   DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job      Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([candidateId])
+}
+
+// ============================================================================
+// PRIVACY & CONSENT (Section 13)
+// ============================================================================
+
+model ConsentRecord {
+  id            String      @id @default(cuid())
+  userId        String
+  candidateId   String?
+  consentType   ConsentType
+  consentVersion String?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consentType])
+  @@index([candidateId])
+}
+
+model DeletionRequest {
+  id             String          @id @default(cuid())
+  userId         String
+  candidateId    String?
+  requestDate    DateTime        @default(now())
+  status         DeletionStatus  @default(pending)
+  completionDate DateTime?
+  reason         String?
+  // Audit trail captured at purge time
+  deletedData    String?         // JSON
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, requestDate])
+}
+
+model ExportRequest {
+  id             String       @id @default(cuid())
+  userId         String
+  candidateId    String?
+  requestDate    DateTime     @default(now())
+  status         ExportStatus @default(pending)
+  completionDate DateTime?
+  exportUrl      String?
+  expiryDate     DateTime?
+  createdAt      DateTime     @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+// ============================================================================
+// PARSE FAILURES (LLM extraction failures logged for manual review)
+// ============================================================================
+
+model ParseFailure {
+  id          String   @id @default(cuid())
+  inputType   String   // 'cv' | 'job_paste_text' | 'job_upload_file' | 'job_form'
+  rawInput    String   // The original text that failed to parse
+  errorMessage String
+  retryCount  Int      @default(0)
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([resolved, createdAt])
+}
