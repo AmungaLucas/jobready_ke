@@ -166,8 +166,14 @@ export const JOB_TYPE_VARIANTS: Record<JobType, string[]> = {
  * Normalize a free-text value to a canonical enum using word-boundary matching.
  * Returns null if no variant matches.
  *
+ * Accepts:
+ *   - The canonical key itself (e.g. 'customer_service', 'bachelors')
+ *   - Any variant in the variants map (e.g. 'customer service', 'Bachelor')
+ *   - Word-boundary regex matches (e.g. 'HR Manager' -> 'human_resources')
+ *
  * @example
  * normalizeEnum('HR Manager', JOB_FUNCTION_VARIANTS) => 'human_resources'
+ * normalizeEnum('customer_service', JOB_FUNCTION_VARIANTS) => 'customer_service'
  * normalizeEnum('Research Scientist', JOB_FUNCTION_VARIANTS) => null (NOT 'human_resources')
  */
 export function normalizeEnum<T extends string>(
@@ -179,12 +185,18 @@ export function normalizeEnum<T extends string>(
   // Normalize the input: lowercase, trim, collapse whitespace
   const normalized = input.toLowerCase().trim().replace(/\s+/g, ' ');
 
-  // First try exact match (fastest path)
+  // First: check if the input IS the canonical key (e.g. 'customer_service', 'bachelors')
+  // This handles the case where the LLM returns the canonical string directly.
+  for (const [canonical] of Object.entries(variants) as [T, string[]][]) {
+    if (normalized === canonical.toLowerCase()) return canonical;
+  }
+
+  // Second: try exact match against the variant list (fastest path)
   for (const [canonical, list] of Object.entries(variants) as [T, string[]][]) {
     if (list.includes(normalized)) return canonical;
   }
 
-  // Then try word-boundary regex for each variant
+  // Third: try word-boundary regex for each variant
   for (const [canonical, list] of Object.entries(variants) as [T, string[]][]) {
     for (const variant of list) {
       // Escape regex special chars, then wrap with word boundaries

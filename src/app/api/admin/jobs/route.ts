@@ -2,17 +2,20 @@
 // app/api/admin/jobs/route.ts
 // Create a new job posting. Admin-only.
 // Per Section 5: supports 4 input methods:
-//   - paste_text:  LLM fires (Phase 2)
-//   - upload_file: LLM fires (Phase 2)
+//   - paste_text:  LLM extraction (Phase 2)
+//   - upload_file: LLM extraction (Phase 2) — file text extracted client-side
 //   - paste_json:  No LLM, structured JSON provided
 //   - form:        No LLM, structured form fields
-// For Phase 1, we implement paste_json and form methods (no LLM required).
+// After creating the job, automatically computes matches against ALL active
+// candidates (deterministic, $0/match).
 // ============================================================================
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { extractJd, validateJdExtraction } from '@/lib/llm/extract-jd';
+import { scoreMatch, isFunctionMatch } from '@/lib/matching';
 import {
   normalizeEducationLevel,
   normalizeJobFunction,
@@ -25,8 +28,10 @@ import {
   JobType,
 } from '@/lib/normalization';
 
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
-  // List all jobs (admin view, includes inactive)
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'ADMIN') {
@@ -59,6 +64,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'ADMIN') {
@@ -72,26 +78,66 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'inputMethod is required' }, { status: 400 });
     }
 
-    // For Phase 1: support paste_json and form (no LLM)
-    // paste_text and upload_file will be implemented in Phase 2 with LLM
     let jobData: any;
+    let llmProvider: 'gemini' | 'stub' | null = null;
 
-    if (inputMethod === 'paste_json') {
+    if (inputMethod === 'paste_text' || inputMethod === 'upload_file') {
+      // ── LLM extraction path ──────────────────────────────────────────
+      const rawText = body.rawText;
+      if (!rawText || rawText.trim().length < 50) {
+        return NextResponse.json(
+          { error: 'JD text is too short (minimum 50 characters)' },
+          { status: 400 },
+        );
+      }
+
+      let extractionResult;
+      try {
+        extractionResult = await extractJd(rawText);
+      } catch (err: any) {
+        await db.parseFailure.create({
+          data: {
+            inputType: inputMethod === 'paste_text' ? 'job_paste_text' : 'job_upload_file',
+            rawInput: rawText.slice(0, 10000),
+            errorMessage: `${err.code ?? 'UNKNOWN'}: ${err.message}`,
+          },
+        });
+        return NextResponse.json(
+          {
+            error: 'Could not parse the job description. Please try the form input method.',
+            details: err.message,
+          },
+          { status: 422 },
+        );
+      }
+
+      const errors = validateJdExtraction(extractionResult.data);
+      if (errors.length > 0) {
+        return NextResponse.json(
+          { error: 'Extraction produced invalid data', errors },
+          { status: 422 },
+        );
+      }
+
+      jobData = extractionResult.data;
+      llmProvider = extractionResult.provider;
+    } else if (inputMethod === 'paste_json') {
+      // ── Structured JSON path (no LLM) ────────────────────────────────
       jobData = body.job;
       if (!jobData) {
         return NextResponse.json({ error: 'job object is required for paste_json' }, { status: 400 });
       }
     } else if (inputMethod === 'form') {
+      // ── Form path (no LLM) ───────────────────────────────────────────
       jobData = body;
     } else {
-      // Phase 2 will handle these via LLM
       return NextResponse.json(
-        { error: `${inputMethod} not yet implemented (Phase 2)` },
-        { status: 501 },
+        { error: `Invalid inputMethod: ${inputMethod}` },
+        { status: 400 },
       );
     }
 
-    // Normalize all enum fields with word-boundary matching
+    // ── Normalize all enum fields with word-boundary matching ───────────
     const normalizedFunction = normalizeJobFunction(jobData.function);
     if (!normalizedFunction) {
       return NextResponse.json(
@@ -121,12 +167,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Normalize skills
     const requiredSkills = normalizeSkills(jobData.requiredSkills ?? []);
     const preferredSkills = normalizeSkills(jobData.preferredSkills ?? []);
     const administrativeRequirements = jobData.administrativeRequirements ?? [];
 
-    // Create the job
+    // ── Create the job ──────────────────────────────────────────────────
     const job = await db.job.create({
       data: {
         title: String(jobData.title).trim(),
@@ -152,12 +197,78 @@ export async function POST(request: Request) {
       },
     });
 
-    // Mark all existing candidate matches as stale so the matching cron picks this up
-    // (For Phase 1 we don't have a cron; matches are recomputed on-demand in Phase 3)
+    // ── Auto-compute matches for the new job (deterministic, $0/match) ──
+    const candidates = await db.candidate.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        clusters: { some: { isSelected: true } },
+      },
+      include: {
+        education: true,
+        clusters: { where: { isSelected: true } },
+      },
+    });
+
+    let matchesCreated = 0;
+    for (const candidate of candidates) {
+      for (const cluster of candidate.clusters) {
+        if (!isFunctionMatch(cluster.function as JobFunction, job.function as JobFunction)) {
+          continue;
+        }
+
+        const breakdown = scoreMatch(
+          {
+            id: cluster.id,
+            function: cluster.function as JobFunction,
+            jobTitles: JSON.parse(cluster.jobTitles),
+            skills: JSON.parse(cluster.skills),
+            yearsExperience: cluster.yearsExperience,
+          },
+          {
+            id: job.id,
+            function: job.function as JobFunction,
+            title: job.title,
+            requiredSkills: JSON.parse(job.requiredSkills),
+            preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+            minEducation: job.minEducation as EducationLevel,
+            educationField: job.educationField,
+            minExperience: job.minExperience,
+          },
+          candidate.education.map((e) => ({
+            level: e.level as EducationLevel,
+            field: e.field,
+          })),
+        );
+
+        await db.jobMatch.create({
+          data: {
+            candidateId: candidate.id,
+            jobId: job.id,
+            matchedClusterId: cluster.id,
+            totalScore: breakdown.totalScore,
+            titleScore: breakdown.titleScore,
+            skillsScore: breakdown.skillsScore,
+            educationScore: breakdown.educationScore,
+            fieldScore: breakdown.fieldScore,
+            experienceScore: breakdown.experienceScore,
+            explanations: JSON.stringify(breakdown.explanations),
+            stale: false,
+          },
+        });
+        matchesCreated++;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       jobId: job.id,
-      message: 'Job created. Matches will be computed in the next cron run.',
+      title: job.title,
+      inputMethod,
+      llmProvider, // null for form/paste_json, 'gemini'|'stub' for LLM methods
+      matchesCreated,
+      candidatesConsidered: candidates.length,
+      durationMs: Date.now() - startedAt,
     });
   } catch (error) {
     console.error('Create job error:', error);

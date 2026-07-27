@@ -58,3 +58,6 @@ server.log
 /db/*.db-journal
 /db/*.db-shm
 /db/*.db-wal
+
+# Tool output artifacts
+/tool-results/
