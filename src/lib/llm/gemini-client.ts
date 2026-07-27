@@ -170,6 +170,47 @@ const FUNCTION_PATTERNS: Record<string, { general: string[]; titles: string[] }>
     general: ['paralegal', 'regulatory', 'advocate', 'counsel'],
     titles: ['lawyer', 'attorney', 'legal officer', 'legal manager', 'compliance officer'],
   },
+  // ── Kenya-market expansions ──
+  agriculture: {
+    general: ['agribusiness', 'agronomy', 'agricultural', 'horticulture', 'floriculture', 'aquaculture', 'veterinary', 'livestock', 'crop production', 'extension services'],
+    titles: ['agricultural officer', 'extension officer', 'farm manager', 'agronomist', 'veterinary officer', 'livestock officer', 'forestry officer'],
+  },
+  construction: {
+    general: ['building', 'building works', 'quantity surveying', 'structural engineering'],
+    titles: ['site engineer', 'site manager', 'foreman', 'quantity surveyor', 'architect', 'building surveyor', 'contractor', 'mason', 'plumber', 'electrician'],
+  },
+  hospitality: {
+    general: ['hotel', 'tourism', 'catering', 'housekeeping', 'safari', 'events', 'restaurant'],
+    titles: ['chef', 'head chef', 'hotel manager', 'front office manager', 'travel agent', 'tour guide', 'events coordinator', 'food & beverage manager', 'housekeeper'],
+  },
+  transport: {
+    general: ['driving', 'delivery', 'fleet', 'shipping', 'freight', 'customs', 'clearing', 'courier', 'warehouse operations'],
+    titles: ['driver', 'truck driver', 'bus driver', 'delivery driver', 'fleet manager', 'logistics coordinator', 'clearing agent', 'dispatcher', 'warehouse manager'],
+  },
+  security: {
+    general: ['safety', 'health and safety', 'occupational safety', 'fire safety', 'surveillance', 'loss prevention', 'investigation'],
+    titles: ['security guard', 'security officer', 'safety officer', 'health & safety officer', 'investigator', 'loss prevention officer'],
+  },
+  community_social: {
+    general: ['community development', 'ngo', 'non-profit', 'humanitarian', 'monitoring and evaluation', 'counseling', 'psychosocial', 'beneficiary'],
+    titles: ['community development officer', 'programme officer', 'field officer', 'social worker', 'monitoring & evaluation officer', 'm&e officer', 'counselor', 'ngo coordinator', 'project officer'],
+  },
+  manufacturing: {
+    general: ['factory', 'production', 'assembly', 'quality control', 'quality assurance', 'machining', 'welding', 'fabrication', 'packaging'],
+    titles: ['production manager', 'factory manager', 'quality controller', 'shift supervisor', 'plant manager', 'production supervisor'],
+  },
+  government: {
+    general: ['civil service', 'public service', 'county government', 'parastatal', 'state corporation', 'ministry'],
+    titles: ['government officer', 'administrative officer', 'county officer', 'clerk', 'registry clerk', 'procurement officer'],
+  },
+  consulting: {
+    general: ['management consulting', 'advisory', 'strategy consulting', 'business advisory', 'risk management'],
+    titles: ['consultant', 'senior consultant', 'advisory manager', 'strategy analyst', 'business advisor'],
+  },
+  environment: {
+    general: ['conservation', 'wildlife', 'forestry', 'climate', 'natural resources', 'mining', 'geology', 'water resources', 'renewable energy', 'sanitation'],
+    titles: ['environmental officer', 'conservation officer', 'forestry officer', 'water engineer', 'geologist', 'mining engineer', 'environmental impact assessor'],
+  },
 };
 
 // Keywords that MUST use word-boundary matching to avoid false positives
@@ -586,6 +627,16 @@ function stubExtractJd(jdText: string): string {
     education: 'Teacher',
     legal: 'Legal Officer',
     engineering: 'Engineer',
+    agriculture: 'Agricultural Officer',
+    construction: 'Site Engineer',
+    hospitality: 'Hotel Manager',
+    transport: 'Logistics Coordinator',
+    security: 'Security Officer',
+    community_social: 'Community Development Officer',
+    manufacturing: 'Production Manager',
+    government: 'Administrative Officer',
+    consulting: 'Consultant',
+    environment: 'Environmental Officer',
   };
 
   // Sector detection — fall back to a sensible default based on function
@@ -617,6 +668,16 @@ function stubExtractJd(jdText: string): string {
       marketing: 'media',
       engineering: 'manufacturing',
       legal: 'government',
+      agriculture: 'agriculture',
+      construction: 'construction',
+      hospitality: 'hospitality',
+      transport: 'retail',
+      security: 'government',
+      community_social: 'non_profit',
+      manufacturing: 'manufacturing',
+      government: 'government',
+      consulting: 'financial_services',
+      environment: 'agriculture',
     };
     sector = FN_TO_DEFAULT_SECTOR[fn] ?? 'technology';
   }
@@ -674,6 +735,15 @@ function stubExtractJd(jdText: string): string {
       : fn === 'technology' ? 'Computer Science'
       : fn === 'marketing' ? 'Marketing'
       : fn === 'human_resources' ? 'Human Resource Management'
+      : fn === 'engineering' ? 'Engineering'
+      : fn === 'agriculture' ? 'Agriculture'
+      : fn === 'healthcare' ? 'Medicine'
+      : fn === 'education' ? 'Education'
+      : fn === 'construction' ? 'Construction Management'
+      : fn === 'hospitality' ? 'Hospitality Management'
+      : fn === 'legal' ? 'Law'
+      : fn === 'environment' ? 'Environmental Science'
+      : fn === 'community_social' ? 'Social Work'
       : 'Business Administration',
     minExperience,
     requiredSkills: skills.slice(0, 4),

@@ -31,6 +31,7 @@ enum EducationLevel {
 }
 
 enum JobFunction {
+  // ── Core professional functions (original 12) ──
   engineering
   finance
   marketing
@@ -43,6 +44,17 @@ enum JobFunction {
   healthcare
   education
   legal
+  // ── Kenya-market expansions ──
+  agriculture
+  construction
+  hospitality
+  transport
+  security
+  community_social
+  manufacturing
+  government
+  consulting
+  environment
 }
 
 enum Sector {

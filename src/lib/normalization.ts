@@ -13,6 +13,7 @@ export type EducationLevel =
   | 'phd';
 
 export type JobFunction =
+  // Core professional functions (original 12)
   | 'engineering'
   | 'finance'
   | 'marketing'
@@ -24,7 +25,18 @@ export type JobFunction =
   | 'customer_service'
   | 'healthcare'
   | 'education'
-  | 'legal';
+  | 'legal'
+  // Kenya-market expansions
+  | 'agriculture'
+  | 'construction'
+  | 'hospitality'
+  | 'transport'
+  | 'security'
+  | 'community_social'
+  | 'manufacturing'
+  | 'government'
+  | 'consulting'
+  | 'environment';
 
 export type Sector =
   | 'technology'
@@ -132,6 +144,63 @@ export const JOB_FUNCTION_VARIANTS: Record<JobFunction, string[]> = {
   legal: [
     'legal', 'law', 'lawyer', 'attorney', 'counsel', 'paralegal',
     'compliance', 'regulatory', 'advocate',
+  ],
+  // ── Kenya-market expansions ──
+  agriculture: [
+    'agriculture', 'farming', 'agribusiness', 'agronomy', 'agricultural',
+    'horticulture', 'floriculture', 'aquaculture', 'veterinary', 'livestock',
+    'crop', 'farm', 'extension officer', 'agricultural officer',
+  ],
+  construction: [
+    'construction', 'building', 'site manager', 'site engineer',
+    'foreman', 'mason', 'plumber', 'electrician', 'quantity surveyor',
+    'architecture', 'architect', 'building surveyor', 'real estate',
+    'contractor', 'project manager construction',
+  ],
+  hospitality: [
+    'hospitality', 'hotel', 'tourism', 'tourist', 'restaurant', 'catering',
+    'chef', 'cook', 'waiter', 'waitress', 'bartender', 'barista',
+    'front desk', 'receptionist hotel', 'housekeeping', 'lodge', 'safari',
+    'travel', 'events management', 'conference',
+  ],
+  transport: [
+    'transport', 'driving', 'driver', 'delivery', 'logistics',
+    'shipping', 'fleet', 'dispatcher', 'warehouse', 'freight',
+    'courier', 'motorcycle', 'boda boda', 'matatu', 'bus', 'truck',
+    'port', 'customs', 'clearing agent',
+  ],
+  security: [
+    'security', 'guard', 'security guard', 'safety', 'health and safety',
+    'health & safety', 'occupational safety', 'fire safety', 'investigation',
+    'investigator', 'private security', 'surveillance', 'loss prevention',
+    'military', 'armed forces', 'defence', 'defense',
+  ],
+  community_social: [
+    'community', 'social work', 'social worker', 'ngo', 'non-profit',
+    'non profit', 'development', 'community development', 'counseling',
+    'counselling', 'psychologist', 'sociologist', 'programme officer',
+    'field officer', 'monitoring and evaluation', 'm&e', 'beneficiary',
+    'humanitarian', 'relief', 'charity', 'volunteer coordination',
+  ],
+  manufacturing: [
+    'manufacturing', 'factory', 'production', 'assembly', 'quality control',
+    'quality assurance', 'plant', 'machining', 'welding', 'fabrication',
+    'industrial', 'production manager', 'shift supervisor', 'packaging',
+  ],
+  government: [
+    'government', 'civil service', 'public service', 'county', 'ministry',
+    'parastatal', 'state corporation', 'public officer', 'admin officer',
+    'clerical', 'registry', 'government officer',
+  ],
+  consulting: [
+    'consulting', 'consultant', 'consultancy', 'advisory', 'advisor',
+    'advisory', 'strategy', 'management consulting', 'audit consulting',
+    'business advisory', 'tax advisory', 'risk management',
+  ],
+  environment: [
+    'environment', 'environmental', 'conservation', 'wildlife', 'forestry',
+    'climate', 'natural resources', 'mining', 'geology', 'water',
+    'sanitation', 'waste management', 'renewable energy', 'solar',
   ],
 };
 

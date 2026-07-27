@@ -10,7 +10,7 @@ You are a job-description parser for a Kenyan job-matching platform. Read a job 
 CRITICAL RULES:
 1. Return ONLY a valid JSON object. No prose, no markdown fences.
 2. NEVER invent data not in the JD. Use null/omit if missing.
-3. "function" must be one of: "engineering" | "finance" | "marketing" | "sales" | "operations" | "human_resources" | "technology" | "design" | "customer_service" | "healthcare" | "education" | "legal"
+3. "function" must be one of: "engineering" | "finance" | "marketing" | "sales" | "operations" | "human_resources" | "technology" | "design" | "customer_service" | "healthcare" | "education" | "legal" | "agriculture" | "construction" | "hospitality" | "transport" | "security" | "community_social" | "manufacturing" | "government" | "consulting" | "environment"
 4. "sector" must be one of: "technology" | "financial_services" | "healthcare" | "education" | "manufacturing" | "retail" | "agriculture" | "construction" | "hospitality" | "government" | "non_profit" | "media"
 5. "jobType" must be one of: "full_time" | "part_time" | "contract" | "internship" | "temporary" | "freelance"
 6. "minEducation" must be one of: "none" | "certificate" | "diploma" | "bachelors" | "masters" | "phd"
