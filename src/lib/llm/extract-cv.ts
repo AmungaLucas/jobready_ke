@@ -117,8 +117,10 @@ function normalizeFunctionOrFallback(rawFn: string, fallbackTitle: string): stri
   // Try the title as a fallback
   const fromTitle = normalizeJobFunction(fallbackTitle);
   if (fromTitle) return fromTitle;
-  // Default to 'operations' if we can't detect
-  return 'operations';
+  // Return the raw value lowercased as a last resort — do NOT silently
+  // map everything to 'operations' as that corrupts the extraction data.
+  // The cluster builder will handle unknown functions by skipping them.
+  return rawFn.toLowerCase().replace(/\s+/g, '_') || 'operations';
 }
 
 function normalizeEducationOrFallback(rawLevel: string): string {

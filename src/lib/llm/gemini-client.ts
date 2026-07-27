@@ -98,95 +98,447 @@ async function generateWithGemini(
 
 // ─── Stub fallback ──────────────────────────────────────────────────────────
 //
-// Deterministic keyword-based extraction. The stub looks at the input text,
-// detects job-function keywords, and emits JSON in the exact same shape as
-// the real LLM would. This lets us develop the rest of the pipeline without
-// an API key.
+// Improved keyword-based extraction that:
+//   - Reads ACTUAL job titles from CV text (no hardcoded title arrays)
+//   - Counts keyword hits per function to determine the DOMINANT career
+//   - Only creates a 2nd cluster when there's a genuinely distinct secondary career
+//     (requires ≥2 unique role titles + ≥1 year implied experience)
+//   - Does NOT over-split a single career into multiple "trajectories"
 //
-// The stub is intentionally simple — it's not trying to be smart. It's
-// trying to be PREDICTABLE so tests are reproducible.
+// This is still a stub — it's not as smart as Gemini — but it won't hallucinate
+// multiple careers where only one exists.
 
 function stubGenerate(opts: GenerateOptions): string {
-  // Detect whether this is a CV or JD extraction based on the system prompt
   const isCv = opts.systemPrompt.includes('CV_EXTRACTION');
   const isJd = opts.systemPrompt.includes('JD_EXTRACTION');
 
-  if (isCv) {
-    return stubExtractCv(opts.userPrompt);
-  }
-  if (isJd) {
-    return stubExtractJd(opts.userPrompt);
-  }
-
-  // Fallback: empty JSON object
+  if (isCv) return stubExtractCv(opts.userPrompt);
+  if (isJd) return stubExtractJd(opts.userPrompt);
   return '{}';
 }
 
-// ─── CV stub ────────────────────────────────────────────────────────────────
+// ─── Function detection with weighted scoring ─────────────────────────────────
+// Each keyword has a weight: TITLE patterns are worth 3x (they appear in role
+// headings), while GENERAL patterns are worth 1x (may appear in descriptions).
 
-const FUNCTION_KEYWORDS: Record<string, string[]> = {
-  finance: ['accountant', 'accounting', 'finance', 'audit', 'bookkeep', 'taxation', 'cpa', 'ifrs', 'treasury'],
-  technology: ['developer', 'software', 'programmer', 'coding', 'javascript', 'python', 'react', 'node.js', 'database', 'devops', 'cybersecurity', 'frontend', 'backend', 'fullstack', 'information technology', 'systems administrator'],
-  marketing: ['marketing', 'brand', 'advertising', 'social media', 'content writing', 'seo', 'communications', 'public relations'],
-  sales: ['sales', 'business development', 'account manager', 'sales executive', 'territory'],
-  operations: ['operations', 'supply chain', 'logistics', 'procurement', 'warehouse', 'inventory', 'project management'],
-  human_resources: ['human resources', 'recruitment', 'talent acquisition', 'payroll', 'personnel'],
-  design: ['designer', 'graphic design', 'product design', 'visual design', 'creative'],
-  customer_service: ['customer service', 'customer support', 'call center', 'helpdesk', 'customer success', 'client service'],
-  healthcare: ['nurse', 'clinical', 'medical', 'pharmacy', 'patient care', 'physiotherapy', 'public health', 'doctor'],
-  education: ['teacher', 'tutor', 'lecturer', 'instructor', 'trainer', 'curriculum', 'academic'],
-  legal: ['lawyer', 'attorney', 'paralegal', 'compliance', 'advocate', 'counsel'],
-  engineering: ['mechanical', 'electrical', 'civil', 'structural', 'chemical', 'automotive', 'industrial', 'mechatronics'],
+const FUNCTION_PATTERNS: Record<string, { general: string[]; titles: string[] }> = {
+  engineering: {
+    general: ['mechanical', 'electrical', 'civil engineer', 'structural', 'chemical', 'automotive', 'industrial', 'mechatronics'],
+    titles: ['engineer', 'engineering manager', 'site engineer', 'project engineer'],
+  },
+  finance: {
+    general: ['ifrs', 'treasury', 'financial reporting', 'quickbooks', 'sap accounting', 'budgeting', 'reconciliation'],
+    titles: ['accountant', 'accounting officer', 'accounts assistant', 'finance officer', 'finance manager', 'auditor', 'audit manager', 'bookkeeper', 'cpa', 'tax specialist', 'tax manager', 'financial analyst'],
+  },
+  marketing: {
+    general: ['advertising', 'social media', 'content writing', 'seo', 'public relations', 'brand management'],
+    titles: ['marketing officer', 'marketing manager', 'marketing executive', 'digital marketer', 'brand manager', 'communications officer'],
+  },
+  sales: {
+    general: ['b2b', 'b2c', 'territory', 'sales target', 'quota'],
+    titles: ['sales executive', 'sales manager', 'sales representative', 'business development', 'account manager', 'sales officer'],
+  },
+  operations: {
+    general: ['supply chain', 'logistics', 'procurement', 'warehouse', 'inventory', 'project management'],
+    titles: ['operations officer', 'operations manager', 'logistics coordinator', 'procurement officer', 'warehouse manager'],
+  },
+  human_resources: {
+    general: ['talent acquisition', 'people operations', 'personnel', 'staffing'],
+    titles: ['hr officer', 'hr manager', 'recruitment officer', 'recruitment manager', 'payroll officer', 'human resources manager'],
+  },
+  technology: {
+    general: ['javascript', 'python', 'react', 'node.js', 'typescript', 'aws', 'docker', 'kubernetes', 'devops', 'cybersecurity', 'sql', 'postgresql', 'git'],
+    titles: ['software developer', 'software engineer', 'developer', 'programmer', 'it officer', 'it manager', 'systems administrator', 'frontend developer', 'backend developer', 'fullstack developer', 'data scientist', 'data analyst', 'mobile developer'],
+  },
+  design: {
+    general: ['photoshop', 'illustrator', 'figma', 'visual design', 'creative suite'],
+    titles: ['graphic designer', 'ui/ux designer', 'product designer', 'web designer', 'creative designer', 'design officer'],
+  },
+  customer_service: {
+    general: ['call center', 'helpdesk', 'customer care', 'client service', 'customer success'],
+    titles: ['customer service representative', 'customer support', 'office administrator', 'receptionist', 'client relations'],
+  },
+  healthcare: {
+    general: ['pharmacy', 'patient care', 'physiotherapy', 'public health', 'clinical'],
+    titles: ['nurse', 'clinical officer', 'doctor', 'medical officer', 'pharmacist', 'nutritionist'],
+  },
+  education: {
+    general: ['curriculum', 'instructional', 'academic', 'pedagogy'],
+    titles: ['teacher', 'tutor', 'lecturer', 'instructor', 'trainer', 'dean', 'headteacher', 'education officer'],
+  },
+  legal: {
+    general: ['paralegal', 'regulatory', 'advocate', 'counsel'],
+    titles: ['lawyer', 'attorney', 'legal officer', 'legal manager', 'compliance officer'],
+  },
 };
 
-// Short ambiguous keywords that need word-boundary matching to avoid false positives.
-// e.g. "it" must not match "audit" or "with"; "hr" must not match "research" or "share";
-// "pr" must not match "process"; "legal" matches "legacy" without boundaries; "tax" matches "taxonomy".
-const WORD_BOUNDARY_KEYWORDS = new Set(['it', 'hr', 'pr', 'ba', 'ma', 'legal', 'tax']);
+// Keywords that MUST use word-boundary matching to avoid false positives
+const WORD_BOUNDARY_REQUIRED = new Set([
+  'it', 'hr', 'pr', 'ba', 'ma', 'legal', 'tax',
+]);
 
-function detectFunctions(text: string): string[] {
-  const lower = text.toLowerCase();
-  const matched: string[] = [];
-  for (const [fn, keywords] of Object.entries(FUNCTION_KEYWORDS)) {
-    const isMatch = keywords.some((k) => {
-      if (WORD_BOUNDARY_KEYWORDS.has(k)) {
-        const pattern = new RegExp(`\b${k}\b`, 'i');
-        return pattern.test(lower);
-      }
-      return lower.includes(k);
-    });
-    if (isMatch) matched.push(fn);
-  }
-  return matched;
+interface FunctionScore {
+  fn: string;
+  score: number;
+  titleHits: number;
+  generalHits: number;
 }
 
-function stubExtractCv(cvText: string): string {
-  const lower = cvText.toLowerCase();
-  const detectedFunctions = detectFunctions(cvText);
+function scoreFunctions(text: string): FunctionScore[] {
+  const lower = text.toLowerCase();
+  const scores: FunctionScore[] = [];
 
-  // Detect education
+  for (const [fn, patterns] of Object.entries(FUNCTION_PATTERNS)) {
+    let titleHits = 0;
+    let generalHits = 0;
+
+    for (const keyword of patterns.titles) {
+      if (WORD_BOUNDARY_REQUIRED.has(keyword)) {
+        if (new RegExp(`\\b${keyword}\\b`, 'i').test(lower)) titleHits++;
+      } else if (lower.includes(keyword)) {
+        titleHits++;
+      }
+    }
+
+    for (const keyword of patterns.general) {
+      if (WORD_BOUNDARY_REQUIRED.has(keyword)) {
+        if (new RegExp(`\\b${keyword}\\b`, 'i').test(lower)) generalHits++;
+      } else if (lower.includes(keyword)) {
+        generalHits++;
+      }
+    }
+
+    // Title hits are worth 3x because they indicate actual roles
+    const score = (titleHits * 3) + generalHits;
+    if (score > 0) {
+      scores.push({ fn, score, titleHits, generalHits });
+    }
+  }
+
+  return scores.sort((a, b) => b.score - a.score);
+}
+
+// ─── Extract real job titles from CV text ─────────────────────────────────────
+// Looks for common CV patterns: role titles on their own line, or preceded by
+// common markers like "Position", "Role", "Title", or bullet points.
+
+function extractJobTitles(cvText: string): string[] {
+  const titles: string[] = [];
+  const lines = cvText.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim().replace(/^[-•*]\s*/, ''); // strip bullets
+
+    // Skip very short lines and very long lines (paragraphs)
+    if (trimmed.length < 3 || trimmed.length > 80) continue;
+
+    // Skip lines that look like dates, emails, phones, or addresses
+    if (/^\d{4}[-/]\d{2}/.test(trimmed)) continue;
+    if (/^\d{4}\s*(to|–|-|–)\s*(present|current|\d{4})/i.test(trimmed)) continue;
+    if (/@\w+\.\w+/.test(trimmed)) continue;
+    if (/^(\+?254|0)\d{9}/.test(trimmed)) continue;
+    if (/(?:p\.?o\.?\s*box|street|road|avenue|drive|lane|nairobi|kenya|mombasa|kisumu)/i.test(trimmed)) continue;
+
+    // Match lines that look like job titles:
+    // - Common title keywords (but not "curriculum vitae" or "references")
+    const titlePattern = /^(?:(?:junior|senior|lead|principal|chief|head|assistant|associate|deputy|executive)\s+)?(?:[A-Z][a-z]+\s+){0,3}(?:manager|officer|engineer|developer|designer|analyst|specialist|consultant|coordinator|executive|supervisor|administrator|accountant|auditor|director|officer|representative|intern|assistant|trainer|lecturer|teacher|advocate|officer|officer)$/i;
+
+    if (titlePattern.test(trimmed)) {
+      // Filter out non-titles
+      const lower = trimmed.toLowerCase();
+      if (lower.includes('curriculum vitae')) continue;
+      if (lower.includes('career objective')) continue;
+      if (lower.includes('personal profile')) continue;
+      if (lower.includes('references')) continue;
+      if (lower.includes('education')) continue;
+      if (lower === 'skills' || lower === 'hobbies' || lower === 'interests' || lower === 'languages') continue;
+
+      titles.push(trimmed);
+    }
+  }
+
+  return [...new Set(titles)];
+}
+
+// ─── Extract work experience blocks ─────────────────────────────────────────
+// A block starts with a job title line and includes everything until the next
+// title line or a section heading.
+
+function extractExperienceBlocks(cvText: string): Array<{
+  title: string;
+  company: string | undefined;
+  startDate: string | undefined;
+  endDate: string | undefined;
+  yearsExperience: number;
+  description: string | undefined;
+}> {
+  const lines = cvText.split('\n');
+  const titles = extractJobTitles(cvText);
+  const blocks: Array<{
+    title: string;
+    company: string | undefined;
+    startDate: string | undefined;
+    endDate: string | undefined;
+    yearsExperience: number;
+    description: string | undefined;
+  }> = [];
+
+  // Build title line indices for boundary detection
+  const titleLineIndices = new Set<number>();
+  const SECTION_HEADERS = /^(?:education|qualifications|skills|technical skills|references|referees|languages|hobbies|interests|certifications|professional development|career objective|personal profile|summary|profile)$/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim().replace(/^[-•*]\s*/, '');
+    if (titles.some((t) => t.toLowerCase() === trimmed.toLowerCase()) && !SECTION_HEADERS.test(trimmed)) {
+      titleLineIndices.add(i);
+    }
+  }
+
+  const sortedIndices = [...titleLineIndices].sort((a, b) => a - b);
+
+  for (let idx = 0; idx < sortedIndices.length; idx++) {
+    const lineIdx = sortedIndices[idx];
+    const title = lines[lineIdx].trim().replace(/^[-•*]\s*/, '');
+    const nextTitleIdx = idx < sortedIndices.length - 1 ? sortedIndices[idx + 1] : lines.length;
+
+    // Look at the next few lines after the title for company, dates
+    let company: string | undefined;
+    let startDate: string | undefined;
+    let endDate: string | undefined;
+    const descLines: string[] = [];
+
+    for (let j = lineIdx + 1; j < nextTitleIdx && j < lineIdx + 10; j++) {
+      const line = lines[j].trim();
+      if (!line) continue;
+
+      // Company detection: lines that don't look like dates or bullets
+      if (!company && !/^[-•*]/.test(line) && !/^\d{4}/.test(line) && line.length > 2 && line.length < 60 && !SECTION_HEADERS.test(line)) {
+        company = line.replace(/^[-•*]\s*/, '');
+        continue;
+      }
+
+      // Date range detection
+      const dateMatch = line.match(/(\d{4}[-/]?\d{02})\s*(?:to|–|-|–|\/)\s*(present|current|(\d{4}[-/]?\d{02}))/i);
+      if (dateMatch) {
+        startDate = dateMatch[1];
+        endDate = dateMatch[2];
+        continue;
+      }
+      // Single year
+      const singleDate = line.match(/^(\d{4})\s*[-–]?\s*$/);
+      if (singleDate && !startDate) {
+        startDate = singleDate[1];
+        continue;
+      }
+
+      // Description lines (bullets)
+      if (/^[-•*]/.test(line) || /^[A-Z]/.test(line)) {
+        descLines.push(line.replace(/^[-•*]\s*/, ''));
+      }
+    }
+
+    // Estimate years of experience from dates
+    let yearsExperience = 2; // default
+    if (startDate) {
+      const startYear = parseInt(startDate.substring(0, 4), 10);
+      const endYear = (endDate && endDate !== 'present' && endDate !== 'Present' && endDate !== 'current')
+        ? parseInt(endDate.substring(0, 4), 10)
+        : new Date().getFullYear();
+      yearsExperience = Math.max(0, Math.min(40, endYear - startYear));
+    }
+
+    blocks.push({
+      title,
+      company,
+      startDate: startDate || undefined,
+      endDate: endDate || 'Present',
+      yearsExperience,
+      description: descLines.length > 0 ? descLines.join('; ') : undefined,
+    });
+  }
+
+  return blocks;
+}
+
+function stubExtractCv(userPrompt: string): string {
+  // Strip the prompt wrapper to get raw CV text
+  let cvText = userPrompt;
+  const promptMatch = userPrompt.match(/"""\n([\s\S]+?)\n"""/);
+  if (promptMatch) cvText = promptMatch[1];
+
+  const lower = cvText.toLowerCase();
+
+  // ── Score all functions ──────────────────────────────────────────────
+  const scored = scoreFunctions(cvText);
+
+  // ── Extract real job titles and experience blocks ─────────────────────
+  const jobTitles = extractJobTitles(cvText);
+  const blocks = extractExperienceBlocks(cvText);
+
+  // ── Determine the dominant function ────────────────────────────────────
+  // Primary = highest score, Secondary = must have titleHits ≥ 1 AND
+  // significantly different function (score ≥ 2 and ≥20% of primary)
+  const primary = scored[0];
+  const secondary = scored.find(
+    (s) => s !== primary && s.titleHits >= 1 && s.score >= 2 && s.score >= primary.score * 0.2,
+  );
+
+  // Use the secondary function ONLY if there are distinct job titles for it
+  // This prevents over-splitting when someone just mentions a skill
+  const secondaryTitles = secondary
+    ? jobTitles.filter((t) => {
+        const tl = t.toLowerCase();
+        const secPatterns = FUNCTION_PATTERNS[secondary.fn];
+        if (!secPatterns) return false;
+        return secPatterns.titles.some((p) => tl.includes(p)) || secPatterns.general.some((p) => tl.includes(p));
+      })
+    : [];
+
+  const shouldSplit = secondary && secondaryTitles.length >= 2;
+
+  // ── Classify each experience block into a function ─────────────────────
+  const classifyBlock = (title: string): string => {
+    const tl = title.toLowerCase();
+    for (const { fn, patterns } of scored.map((s) => ({ fn: s.fn, patterns: FUNCTION_PATTERNS[s.fn]! }))) {
+      if (patterns.titles.some((p) => tl.includes(p))) return fn;
+    }
+    return primary?.fn ?? 'operations';
+  };
+
+  // ── Build work experiences from actual CV data ──────────────────────────
+  const workExperiences: any[] = [];
+  for (const block of blocks) {
+    workExperiences.push({
+      jobTitle: block.title,
+      company: block.company,
+      startDate: block.startDate,
+      endDate: block.endDate,
+      yearsExperience: block.yearsExperience,
+      description: block.description,
+      function: classifyBlock(block.title),
+      skills: [], // filled below
+    });
+  }
+
+  // If no blocks were extracted, create one from the dominant function
+  if (workExperiences.length === 0 && primary) {
+    const title = jobTitles[0] || `${primary.fn.charAt(0).toUpperCase() + primary.fn.slice(1)} Specialist`;
+    workExperiences.push({
+      jobTitle: title,
+      company: undefined,
+      startDate: '2020-01',
+      endDate: 'Present',
+      yearsExperience: 4,
+      function: primary.fn,
+      skills: [],
+    });
+  }
+
+  // If nothing detected at all, create a single generic entry
+  if (workExperiences.length === 0) {
+    workExperiences.push({
+      jobTitle: 'General Worker',
+      company: undefined,
+      startDate: '2020-01',
+      endDate: 'Present',
+      yearsExperience: 1,
+      function: 'operations',
+      skills: [],
+    });
+  }
+
+  // ── Skills detection ───────────────────────────────────────────────────
+  const SKILL_LEXICON = [
+    // Finance & Accounting
+    'accounting', 'ifrs', 'audit', 'taxation', 'quickbooks', 'excel', 'sap',
+    'bookkeeping', 'financial reporting', 'budgeting', 'reconciliation',
+    // Technology
+    'javascript', 'react', 'node.js', 'python', 'typescript', 'aws', 'git',
+    'sql', 'postgresql', 'docker', 'kubernetes', 'api', 'rest', 'html', 'css',
+    // Admin & Operations
+    'customer service', 'communication', 'office administration', 'filing',
+    'scheduling', 'data entry', 'project management', 'supply chain', 'logistics',
+    // Marketing & Sales
+    'marketing', 'social media', 'content writing', 'seo', 'advertising',
+    'sales', 'negotiation', 'crm', 'b2b', 'b2c',
+    // HR
+    'recruitment', 'payroll', 'performance management', 'training',
+    // Design
+    'graphic design', 'photoshop', 'illustrator', 'figma', 'adobe',
+    // Education
+    'teaching', 'curriculum development', 'mentorship',
+    // General / Soft skills
+    'leadership', 'team management', 'problem solving', 'analytical',
+    'report writing', 'presentation', 'microsoft office', 'google workspace',
+  ];
+  const allSkills = SKILL_LEXICON.filter((s) => lower.includes(s));
+
+  // Assign skills to each experience based on its function
+  for (const exp of workExperiences) {
+    exp.skills = allSkills.slice(0, 6);
+  }
+
+  // ── Build clusters — ONE dominant, optionally ONE secondary ────────────
+  const suggestedClusters: any[] = [];
+
+  if (shouldSplit && secondary) {
+    // Two distinct careers
+    const primaryExps = workExperiences.filter((e) => e.function === primary.fn);
+    const secondaryExps = workExperiences.filter((e) => e.function === secondary.fn);
+
+    if (primaryExps.length > 0) {
+      suggestedClusters.push({
+        function: primary.fn,
+        jobTitles: primaryExps.map((e) => e.jobTitle),
+        skills: allSkills.filter((s) => primaryExps.some((e) => e.skills.includes(s))),
+        yearsExperience: Math.max(...primaryExps.map((e) => e.yearsExperience)),
+      });
+    }
+    if (secondaryExps.length > 0) {
+      suggestedClusters.push({
+        function: secondary.fn,
+        jobTitles: secondaryExps.map((e) => e.jobTitle),
+        skills: allSkills.filter((s) => secondaryExps.some((e) => e.skills.includes(s))),
+        yearsExperience: Math.max(...secondaryExps.map((e) => e.yearsExperience)),
+      });
+    }
+  } else {
+    // Single career — all experiences go into one cluster
+    const dominantFn = primary?.fn ?? workExperiences[0].function;
+    suggestedClusters.push({
+      function: dominantFn,
+      jobTitles: workExperiences.map((e) => e.jobTitle),
+      skills: allSkills.slice(0, 10),
+      yearsExperience: Math.max(...workExperiences.map((e) => e.yearsExperience), 1),
+    });
+  }
+
+  // ── Education detection ─────────────────────────────────────────────────
   const education: any[] = [];
   if (/\bbachelor|bsc|ba|bcom|bed|btech|beng|degree\b/i.test(cvText)) {
-    const fieldMatch = cvText.match(/\b(?:bachelor|bsc|ba|bcom|bed|btech|beng)[^.]*(?:in|of)\s+([A-Za-z\s]+)/i);
+    const fieldMatch = cvText.match(/\b(?:bachelor|bsc|ba|bcom|bed|btech|beng)[^.]*(?:in|of)\s+([A-Za-z\s,]+)/i);
     education.push({
       level: 'Bachelor',
       field: fieldMatch ? fieldMatch[1].trim() : 'General',
+      institution: undefined,
       graduationYear: extractYear(cvText),
     });
   }
   if (/\bmaster|msc|ma|mba|mcom|med|meng\b/i.test(cvText)) {
-    const fieldMatch = cvText.match(/\b(?:master|msc|ma|mba|mcom|med|meng)[^.]*(?:in|of)\s+([A-Za-z\s]+)/i);
+    const fieldMatch = cvText.match(/\b(?:master|msc|ma|mba|mcom|med|meng)[^.]*(?:in|of)\s+([A-Za-z\s,]+)/i);
     education.push({
       level: 'Master',
       field: fieldMatch ? fieldMatch[1].trim() : 'General',
+      institution: undefined,
       graduationYear: extractYear(cvText),
     });
   }
   if (/\bdiploma\b/i.test(cvText)) {
-    const fieldMatch = cvText.match(/diploma[^.]*(?:in)\s+([A-Za-z\s]+)/i);
+    const fieldMatch = cvText.match(/diploma[^.]*(?:in)\s+([A-Za-z\s,]+)/i);
     education.push({
       level: 'Diploma',
       field: fieldMatch ? fieldMatch[1].trim() : 'General',
+      institution: undefined,
       graduationYear: extractYear(cvText),
     });
   }
@@ -194,6 +546,7 @@ function stubExtractCv(cvText: string): string {
     education.push({
       level: 'Certificate',
       field: 'General',
+      institution: undefined,
       graduationYear: extractYear(cvText),
     });
   }
@@ -201,77 +554,11 @@ function stubExtractCv(cvText: string): string {
     education.push({ level: 'Bachelor', field: 'General' });
   }
 
-  // Detect skills — pull from a known skills lexicon
-  const SKILL_LEXICON = [
-    'accounting', 'ifrs', 'audit', 'taxation', 'quickbooks', 'excel', 'sap',
-    'bookkeeping', 'financial reporting', 'budgeting',
-    'javascript', 'react', 'node.js', 'python', 'typescript', 'aws', 'git',
-    'sql', 'postgresql', 'docker', 'kubernetes',
-    'customer service', 'communication', 'office administration', 'filing',
-    'scheduling', 'call center',
-    'marketing', 'social media', 'content writing', 'seo', 'advertising',
-    'sales', 'negotiation', 'b2b', 'crm',
-    'project management', 'supply chain', 'logistics', 'procurement',
-    'hr', 'recruitment', 'payroll',
-    'graphic design', 'photoshop', 'illustrator', 'figma',
-    'teaching', 'curriculum development',
-  ];
-  const skills = SKILL_LEXICON.filter((s) => lower.includes(s));
-
-  // Build work experiences from detected functions
-  const workExperiences: any[] = [];
-  const suggestedClusters: any[] = [];
-
-  for (const fn of detectedFunctions.slice(0, 3)) {
-    const titleMap: Record<string, string[]> = {
-      finance: ['Accountant', 'Accounts Assistant', 'Finance Officer'],
-      technology: ['Software Developer', 'Junior Engineer', 'IT Officer'],
-      marketing: ['Marketing Officer', 'Marketing Intern', 'Digital Marketing Specialist'],
-      sales: ['Sales Executive', 'Business Development Representative'],
-      operations: ['Operations Officer', 'Logistics Coordinator'],
-      human_resources: ['HR Officer', 'Recruitment Assistant'],
-      design: ['Graphic Designer', 'UI/UX Designer'],
-      customer_service: ['Customer Service Representative', 'Office Administrator'],
-      healthcare: ['Clinical Officer', 'Nurse'],
-      education: ['Teacher', 'Tutor'],
-      legal: ['Legal Officer', 'Paralegal'],
-      engineering: ['Mechanical Engineer', 'Electrical Engineer'],
-    };
-    const titles = titleMap[fn] ?? [`${fn} Specialist`];
-    const fnSkills = skills.length > 0 ? skills.slice(0, 6) : [];
-
-    workExperiences.push({
-      jobTitle: titles[0],
-      startDate: '2020-01',
-      endDate: 'Present',
-      yearsExperience: 4,
-      function: fn,
-      skills: fnSkills,
-    });
-
-    suggestedClusters.push({
-      function: fn,
-      jobTitles: titles,
-      skills: fnSkills,
-      yearsExperience: 4,
-    });
-  }
-
-  // If nothing detected, emit a single generic cluster
-  if (suggestedClusters.length === 0) {
-    suggestedClusters.push({
-      function: 'operations',
-      jobTitles: ['Operations Assistant'],
-      skills: skills.slice(0, 3),
-      yearsExperience: 1,
-    });
-  }
-
   return JSON.stringify({
     workExperiences,
     education,
-    skills: Array.from(new Set(skills)),
-    suggestedClusters: suggestedClusters.slice(0, 3),
+    skills: Array.from(new Set(allSkills)),
+    suggestedClusters,
   });
 }
 
