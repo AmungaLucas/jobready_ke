@@ -8,12 +8,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 // ============================================================================
-// ENUMS (SQLite doesn't have native enums; Prisma enforces at app layer)
+// ENUMS (MySQL has native ENUM types; Prisma maps these to MySQL ENUM columns)
 // ============================================================================
 
 enum UserRole {
@@ -235,13 +235,13 @@ model WorkExperienceCluster {
   id             String      @id @default(cuid())
   candidateId    String
   function       JobFunction
-  jobTitles      String      // JSON array: ["Accountant", "Senior Accountant"]
-  skills         String      // JSON array: ["accounting", "ifrs", "audit"]
+  jobTitles      String      @db.Text // JSON array: ["Accountant", "Senior Accountant"]
+  skills         String      @db.Text // JSON array: ["accounting", "ifrs", "audit"]
   yearsExperience Int
   // The candidate selects up to 3 clusters as active trajectories for matching
   isSelected     Boolean     @default(false)
   // Original raw work experience entries that were clustered
-  rawExperiences  String      // JSON array of original jobs
+  rawExperiences  String      @db.LongText // JSON array of original jobs
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -257,7 +257,7 @@ model CandidateExtra {
   id          String   @id @default(cuid())
   candidateId String
   type        String   // 'certification' | 'language' | 'referee' | 'soft_skill'
-  value       String   // JSON or plain text
+  value       String   @db.Text // JSON or plain text
   createdAt   DateTime @default(now())
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
@@ -278,13 +278,13 @@ model Job {
   minEducation          EducationLevel
   educationField        String       // e.g. "Accounting", "Computer Science"
   minExperience         Int          // years
-  requiredSkills        String       // JSON array
-  preferredSkills       String?      // JSON array
-  description           String
+  requiredSkills        String       @db.Text // JSON array
+  preferredSkills       String?      @db.Text // JSON array
+  description           String       @db.Text
   location              String?
   salaryRange           String?
   applicationDeadline   DateTime?
-  administrativeRequirements String?  // JSON array, candidate self-selects
+  administrativeRequirements String?  @db.Text // JSON array, candidate self-selects
   // Source: which input method created this job
   inputMethod           String       @default("form") // 'paste_text' | 'upload_file' | 'paste_json' | 'form'
   // Lifecycle
@@ -321,7 +321,7 @@ model JobMatch {
   fieldScore       Int      // 0-5
   experienceScore  Int      // 0-10
   // Explanation: which dimensions matched
-  explanations     String   // JSON array of MatchExplanation
+  explanations     String   @db.Text // JSON array of MatchExplanation
   computedAt       DateTime @default(now())
   // For incremental matching: track if this match needs recompute
   stale            Boolean  @default(false)
@@ -347,7 +347,7 @@ model Application {
   status      ApplicationStatus @default(draft)
   // Snapshot of subscription state at creation (for cross-state policy)
   subscriptionStateAtCreation String?
-  coverLetter String?
+  coverLetter String?       @db.Text
   appliedAt   DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -401,9 +401,9 @@ model DeletionRequest {
   requestDate    DateTime        @default(now())
   status         DeletionStatus  @default(pending)
   completionDate DateTime?
-  reason         String?
+  reason         String?    @db.Text
   // Audit trail captured at purge time
-  deletedData    String?         // JSON
+  deletedData    String?         @db.Text // JSON
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -421,7 +421,7 @@ model ExportRequest {
   requestDate    DateTime     @default(now())
   status         ExportStatus @default(pending)
   completionDate DateTime?
-  exportUrl      String?
+  exportUrl      String?     @db.Text
   expiryDate     DateTime?
   createdAt      DateTime     @default(now())
 
@@ -438,8 +438,8 @@ model ExportRequest {
 model ParseFailure {
   id          String   @id @default(cuid())
   inputType   String   // 'cv' | 'job_paste_text' | 'job_upload_file' | 'job_form'
-  rawInput    String   // The original text that failed to parse
-  errorMessage String
+  rawInput    String   @db.LongText // The original text that failed to parse
+  errorMessage String   @db.Text
   retryCount  Int      @default(0)
   resolved    Boolean  @default(false)
   createdAt   DateTime @default(now())
