@@ -17,6 +17,82 @@
 // The client never does file parsing — it just sends raw bytes via FormData.
 // ============================================================================
 
+// ── Polyfills for pdfjs-dist in Node.js / Vercel serverless ──────────────
+// pdfjs-dist (used internally by pdf-parse) requires DOMMatrix, DOMRect,
+// and CSS unit parsing APIs that exist in browsers but not in Node.js.
+// We stub them out before any pdf-parse import so the library can
+// initialise without crashing.
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  // @ts-expect-error — polyfill
+  globalThis.DOMMatrix = class DOMMatrix {
+    private m: number[];
+    constructor(init?: string | number[]) {
+      if (typeof init === 'string') {
+        this.m = init.split(/[,\s]+/).map(Number);
+      } else {
+        this.m = Array.isArray(init) ? [...init] : [1,0,0,1,0,0];
+      }
+      while (this.m.length < 6) this.m.push(0);
+    }
+    get a() { return this.m[0]; } set a(v) { this.m[0] = v; }
+    get b() { return this.m[1]; } set b(v) { this.m[1] = v; }
+    get c() { return this.m[2]; } set c(v) { this.m[2] = v; }
+    get d() { return this.m[3]; } set d(v) { this.m[3] = v; }
+    get e() { return this.m[4]; } set e(v) { this.m[4] = v; }
+    get f() { return this.m[5]; } set f(v) { this.m[5] = v; }
+    is2D() { return true; }
+    isIdentity() { return this.m.every((v, i) => v === [1,0,0,1,0,0][i]); }
+    inverse() { return new (this.constructor as any)(this.m); }
+    multiply() { return this; }
+    rotate() { return this; }
+    scale() { return this; }
+    translate() { return this; }
+    toString() { return `matrix(${this.m.join(', ')})`; }
+  };
+}
+if (typeof globalThis.DOMRect === 'undefined') {
+  // @ts-expect-error — polyfill
+  globalThis.DOMRect = class DOMRect {
+    x = 0; y = 0; width = 0; height = 0;
+    top = 0; right = 0; bottom = 0; left = 0;
+    constructor(x = 0, y = 0, width = 0, height = 0) {
+      this.x = x; this.y = y; this.width = width; this.height = height;
+      this.top = y; this.right = x + width; this.bottom = y + height; this.left = x;
+    }
+    toJSON() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
+  };
+}
+if (typeof globalThis.DOMPoint === 'undefined') {
+  // @ts-expect-error — polyfill
+  globalThis.DOMPoint = class DOMPoint {
+    x = 0; y = 0; z = 0; w = 1;
+    constructor(x = 0, y = 0, z = 0, w = 1) {
+      this.x = x; this.y = y; this.z = z; this.w = w;
+    }
+    matrixTransform() { return this; }
+  };
+}
+// CSS parsing: pdfjs may call getComputedStyle or access style properties
+if (typeof globalThis.CSS === 'undefined') {
+  // @ts-expect-error — polyfill
+  globalThis.CSS = {
+    supports() { return false; },
+    escape(str: string) { return str; },
+  };
+}
+// AbortSignal polyfill for older runtimes
+if (typeof globalThis.AbortSignal === 'undefined') {
+  // @ts-expect-error — polyfill
+  globalThis.AbortSignal = class AbortSignal {
+    aborted = false;
+    reason: any = undefined;
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent() { return true; }
+    throwIfAborted() {}
+  };
+}
+
 import mammoth from 'mammoth';
 
 // pdf-parse v2 exports PDFParse class, no default export.
