@@ -3,7 +3,9 @@
 // Candidate CV upload — Phase 2 data pipeline.
 //
 // Flow:
-//   1. Receive raw CV text (paste) or extracted text (file upload, parsed client-side)
+//   1. Accept input via two methods:
+//      a) FormData (file upload) → server-side document parsing (PDF/DOCX/DOC/MD/JSON/TXT)
+//      b) JSON body (text paste)  → raw text as-is
 //   2. Call LLM (Gemini or stub) to extract structured data
 //   3. Persist:
 //      - raw CV text -> candidate_extras (type='raw_cv')
@@ -26,9 +28,11 @@ import {
   EducationLevel,
 } from '@/lib/normalization';
 import { ConsentType } from '@prisma/client';
+import { parseDocument, ParseError, SUPPORTED_EXTENSIONS } from '@/lib/parsers/parse-document';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Vercel: allow up to 60s for LLM call
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -38,20 +42,73 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { rawText, consent } = body as { rawText?: string; consent?: boolean };
+    // ── Determine input method: FormData (file) vs JSON (text paste) ────
+    const contentType = request.headers.get('content-type') ?? '';
+    let rawText: string;
+    let parseInfo: string | undefined;
 
-    if (!rawText || rawText.trim().length < 50) {
-      return NextResponse.json(
-        { error: 'CV text is too short. Please paste at least 50 characters.' },
-        { status: 400 },
-      );
-    }
-    if (!consent) {
-      return NextResponse.json(
-        { error: 'Consent to CV processing is required.' },
-        { status: 400 },
-      );
+    if (contentType.includes('multipart/form-data')) {
+      // File upload path
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      const consent = formData.get('consent');
+
+      if (!file) {
+        return NextResponse.json(
+          { error: 'No file provided. Please select a file to upload.' },
+          { status: 400 },
+        );
+      }
+      if (!consent) {
+        return NextResponse.json(
+          { error: 'Consent to CV processing is required.' },
+          { status: 400 },
+        );
+      }
+
+      // Validate file extension
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      if (!SUPPORTED_EXTENSIONS.has(ext)) {
+        return NextResponse.json(
+          {
+            error: `Unsupported file format: .${ext}. Supported: PDF, DOCX, DOC, TXT, MD, JSON, CSV, RTF.`,
+          },
+          { status: 400 },
+        );
+      }
+
+      // Parse the document server-side
+      try {
+        const parsed = await parseDocument(file, file.name);
+        rawText = parsed.text;
+        parseInfo = `${parsed.metadata.format} (${formatBytes(parsed.metadata.fileSize)}, ${parsed.metadata.pages ? parsed.metadata.pages + ' pages, ' : ''}${rawText.length} chars extracted)`;
+      } catch (err) {
+        if (err instanceof ParseError) {
+          return NextResponse.json(
+            { error: err.message, format: err.format },
+            { status: 400 },
+          );
+        }
+        throw err; // re-throw unexpected errors
+      }
+    } else {
+      // JSON body (text paste path — original behaviour)
+      const body = await request.json();
+      const { rawText: text, consent } = body as { rawText?: string; consent?: boolean };
+
+      if (!text || text.trim().length < 50) {
+        return NextResponse.json(
+          { error: 'CV text is too short. Please paste at least 50 characters.' },
+          { status: 400 },
+        );
+      }
+      if (!consent) {
+        return NextResponse.json(
+          { error: 'Consent to CV processing is required.' },
+          { status: 400 },
+        );
+      }
+      rawText = text;
     }
 
     // Find the candidate
@@ -229,7 +286,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       success: true,
       provider,
       extracted: {
@@ -246,7 +303,14 @@ export async function POST(request: Request) {
         created: matchesCreated,
       },
       durationMs: Date.now() - startedAt,
-    });
+    };
+
+    // Include parse info if it was a file upload
+    if (parseInfo) {
+      response.parseInfo = parseInfo;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('CV upload error:', error);
     return NextResponse.json(
@@ -254,4 +318,10 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

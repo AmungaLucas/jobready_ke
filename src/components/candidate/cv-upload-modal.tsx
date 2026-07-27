@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Loader2, Upload, FileText, Sparkles, CheckCircle2, AlertCircle,
+  Loader2, Upload, FileText, Sparkles, CheckCircle2, AlertCircle, File, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,14 +37,14 @@ interface ExtractionSummary {
     jobTitles: string[];
     yearsExperience: number;
   }>;
+  parseInfo?: string;
 }
 
 export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
   const [pasteText, setPasteText] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileText, setFileText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ExtractionSummary | null>(null);
@@ -52,47 +52,45 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
 
   function reset() {
     setPasteText('');
-    setFileName('');
-    setFileText('');
+    setSelectedFile(null);
     setConsent(false);
     setResult(null);
   }
 
-  async function handleFile(file: File) {
-    setFileName(file.name);
-    setFileText('');
-    setResult(null);
-    try {
-      // Read file as text. PDF/DOCX parsing would need server-side extraction;
-      // for now we accept .txt, .md, and try to read any text-like file.
-      if (file.type.startsWith('text/') || file.name.match(/\.(txt|md|csv|rtf)$/i)) {
-        const text = await file.text();
-        setFileText(text);
-      } else {
-        // For binary formats (PDF, DOCX), we read as text and let the LLM
-        // deal with the noise. A proper implementation would use pdf-parse
-        // or mammoth on the server side.
-        const text = await file.text();
-        if (text && text.length > 50) {
-          setFileText(text);
-          toast.info('Binary file detected — extracted raw text. For best results, paste as plain text.');
-        } else {
-          toast.error('Could not extract text from this file. Please paste your CV manually.');
-          setFileName('');
-        }
-      }
-    } catch (err) {
-      toast.error('Failed to read file');
-      setFileName('');
+  /** Format file size for display */
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /** File icon based on extension */
+  function getFileIcon(name: string) {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (['pdf'].includes(ext)) return '📄';
+    if (['docx', 'doc'].includes(ext)) return '📝';
+    if (['md', 'markdown'].includes(ext)) return '📋';
+    if (['json'].includes(ext)) return '{}';
+    return '📄';
+  }
+
+  function handleFileSelect(file: File) {
+    // Validate extension client-side for immediate feedback
+    const ext = file.split('.').pop()?.toLowerCase() ?? '';
+    const allowed = new Set(['pdf', 'docx', 'doc', 'txt', 'text', 'md', 'markdown', 'json', 'csv', 'rtf']);
+    if (!allowed.has(ext)) {
+      toast.error(`Unsupported format: .${ext}. Supported: PDF, DOCX, DOC, TXT, MD, JSON.`);
+      return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 10 MB.');
+      return;
+    }
+    setSelectedFile(file);
+    setResult(null);
   }
 
   async function handleUpload() {
-    const rawText = mode === 'paste' ? pasteText : fileText;
-    if (rawText.trim().length < 50) {
-      toast.error('Please provide at least 50 characters of your CV');
-      return;
-    }
     if (!consent) {
       toast.error('Please consent to CV processing');
       return;
@@ -100,25 +98,49 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch('/api/cv/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText, consent: true }),
-      });
+      let res: Response;
+
+      if (mode === 'file' && selectedFile) {
+        // ── File upload: send as FormData, server parses ──
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('consent', 'true');
+        res = await fetch('/api/cv/upload', {
+          method: 'POST',
+          body: formData,
+          // Do NOT set Content-Type — browser sets multipart boundary automatically
+        });
+      } else {
+        // ── Text paste: send as JSON ──
+        const rawText = pasteText;
+        if (rawText.trim().length < 50) {
+          toast.error('Please provide at least 50 characters of your CV');
+          setLoading(false);
+          return;
+        }
+        res = await fetch('/api/cv/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawText, consent: true }),
+        });
+      }
+
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || 'Upload failed');
         return;
       }
       setResult(data.extracted);
+      if (data.parseInfo) {
+        toast.success(`${data.parseInfo}`);
+      }
       toast.success(
         `CV processed! ${data.extracted.clusterCount} career trajectories found, ${data.matches.created} matches computed.`,
       );
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
-      // Don't auto-close — show the extraction summary first
     } catch (err) {
-      toast.error('Upload failed');
+      toast.error('Upload failed — please try again');
     } finally {
       setLoading(false);
     }
@@ -126,11 +148,15 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
 
   function handleClose(open: boolean) {
     if (!open && result) {
-      // If we have a result, reset state on close
       reset();
     }
     onOpenChange(open);
   }
+
+  const canSubmit =
+    !loading &&
+    consent &&
+    (mode === 'paste' ? pasteText.trim().length >= 50 : !!selectedFile);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -226,48 +252,64 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
               <div className="space-y-1.5">
                 <Label>Upload your CV file</Label>
                 <div
-                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    selectedFile
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'hover:border-primary/50 hover:bg-muted/30'
+                  }`}
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); }}
                   onDrop={(e) => {
                     e.preventDefault();
                     const file = e.dataTransfer.files[0];
-                    if (file) handleFile(file);
+                    if (file) handleFileSelect(file);
                   }}
                 >
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm font-medium">
-                    {fileName || 'Click to browse or drag a file here'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports .txt, .md, .csv, .rtf · Max 5MB
-                  </p>
+                  {selectedFile ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <File className="h-8 w-8 text-primary" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatSize(selectedFile.size)} · {selectedFile.type || 'unknown type'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-2 h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium">
+                        Click to browse or drag a file here
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        PDF, DOCX, DOC, TXT, MD, JSON · Max 10 MB
+                      </p>
+                    </>
+                  )}
                   <Input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.md,.csv,.rtf,text/*"
+                    accept=".pdf,.docx,.doc,.txt,.text,.md,.markdown,.json,.csv,.rtf"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleFile(file);
+                      if (file) handleFileSelect(file);
+                      // Reset so the same file can be re-selected
+                      e.target.value = '';
                     }}
                   />
                 </div>
-                {fileText && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{fileText.length} characters extracted</span>
-                      <Button variant="ghost" size="sm" onClick={() => { setFileName(''); setFileText(''); }}>
-                        Clear
-                      </Button>
-                    </div>
-                    <Textarea
-                      readOnly
-                      value={fileText.slice(0, 500) + (fileText.length > 500 ? '...' : '')}
-                      className="min-h-[100px] font-mono text-xs"
-                    />
-                  </div>
-                )}
               </div>
             </TabsContent>
           </Tabs>
@@ -300,7 +342,7 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
           ) : (
             <>
               <Button variant="ghost" onClick={() => handleClose(false)}>Cancel</Button>
-              <Button onClick={handleUpload} disabled={loading || (mode === 'paste' ? pasteText.length < 50 : fileText.length < 50) || !consent}>
+              <Button onClick={handleUpload} disabled={!canSubmit}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Processing CV...' : 'Upload & Process CV'}
               </Button>
