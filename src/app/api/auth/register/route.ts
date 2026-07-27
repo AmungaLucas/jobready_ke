@@ -115,11 +115,53 @@ export async function POST(request: Request) {
       candidateId: result.candidate.id,
       message: 'Account created. Please sign in to continue.',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Registration error:', error);
+    const msg = (error as Error)?.message ?? String(error);
+
+    // Classify the error so the user gets an actionable hint without leaking
+    // internal details (no raw SQL, no DB URL, no stack trace).
+    let kind: 'db-unreachable' | 'db-config' | 'duplicate' | 'unknown' = 'unknown';
+    if (
+      msg.includes('Can\'t reach database') ||
+      msg.includes('Timed out fetching a new connection') ||
+      msg.includes('connect ECONNREFUSED') ||
+      msg.includes('connect ETIMEDOUT') ||
+      msg.includes('getaddrinfo ENOTFOUND')
+    ) {
+      kind = 'db-unreachable';
+    } else if (
+      msg.includes('DATABASE_URL') ||
+      msg.includes('PrismaClientInitializationError') ||
+      msg.includes('Authentication failed') ||
+      msg.includes('Access denied')
+    ) {
+      kind = 'db-config';
+    } else if (msg.includes('Unique constraint') || msg.includes('Already exists')) {
+      kind = 'duplicate';
+    }
+
+    const hintMap: Record<typeof kind, string> = {
+      'db-unreachable':
+        'Database server is unreachable from this environment. If deploying on Vercel, make sure the DB host allows inbound connections from Vercel IPs.',
+      'db-config':
+        'Database configuration is invalid. Check that DATABASE_URL is set in your deployment environment variables and points to a reachable MySQL server.',
+      duplicate: 'An account with these details already exists.',
+      unknown: 'Please try again. If the problem persists, contact support.',
+    };
+
     return NextResponse.json(
-      { error: 'Failed to create account. Please try again.' },
-      { status: 500 },
+      {
+        error: 'Failed to create account.',
+        hint: hintMap[kind],
+        kind,
+        // Reference code only — safe to expose. Map to a short slug.
+        ref:
+          kind === 'unknown'
+            ? 'REG_UNKNOWN'
+            : `REG_${kind.toUpperCase()}`,
+      },
+      { status: kind === 'duplicate' ? 409 : 500 },
     );
   }
 }
