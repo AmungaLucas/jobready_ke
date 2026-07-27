@@ -37,17 +37,23 @@ export default function Home() {
   const [candidateView, setCandidateView] = useState<CandidateView>('matches');
   const [adminView, setAdminView] = useState<AdminView>('jobs');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  // Mount gate: ensures the first client render matches the server render
+  // exactly (both render the loading shell). This prevents hydration
+  // mismatches triggered by browser extensions (e.g. screen recorders)
+  // that mutate <body> before React hydrates.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Open auth modal automatically when URL has ?auth=signin
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!mounted) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('auth') === 'signin' && status !== 'authenticated') {
       // Defer to avoid synchronous setState in effect
       const t = setTimeout(() => setAuthOpen(true), 0);
       return () => clearTimeout(t);
     }
-  }, [status]);
+  }, [status, mounted]);
 
   function openJob(jobId: string) {
     setSelectedJobId(jobId);
@@ -58,7 +64,10 @@ export default function Home() {
   }
 
   // ─── Loading state ───
-  if (status === 'loading') {
+  // Rendered on the server AND during the first client render (before mount),
+  // so server HTML and client HTML match. Once mounted, we transition to the
+  // real session-aware UI.
+  if (!mounted || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
