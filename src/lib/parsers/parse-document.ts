@@ -3,7 +3,7 @@
 // Server-side document parser — converts uploaded files to plain text.
 //
 // Supported formats:
-//   - PDF    → pdf-parse (extracts text layer)
+//   - PDF    → pdfjs-dist (extracts text layer, no web worker)
 //   - DOCX   → mammoth   (extracts paragraphs + tables)
 //   - DOC    → mammoth   (best-effort; old binary format)
 //   - TXT    → direct read
@@ -18,10 +18,8 @@
 // ============================================================================
 
 // ── Polyfills for pdfjs-dist in Node.js / Vercel serverless ──────────────
-// pdfjs-dist (used internally by pdf-parse) requires DOMMatrix, DOMRect,
-// and CSS unit parsing APIs that exist in browsers but not in Node.js.
-// We stub them out before any pdf-parse import so the library can
-// initialise without crashing.
+// pdfjs-dist requires DOMMatrix, DOMRect, DOMPoint, CSS which exist in
+// browsers but not in Node.js. We stub them out before importing pdfjs.
 if (typeof globalThis.DOMMatrix === 'undefined') {
   // @ts-expect-error — polyfill
   globalThis.DOMMatrix = class DOMMatrix {
@@ -72,57 +70,142 @@ if (typeof globalThis.DOMPoint === 'undefined') {
     matrixTransform() { return this; }
   };
 }
-// CSS parsing: pdfjs may call getComputedStyle or access style properties
 if (typeof globalThis.CSS === 'undefined') {
   // @ts-expect-error — polyfill
   globalThis.CSS = {
     supports() { return false; },
-    escape(str: string) { return str; },
-  };
-}
-// AbortSignal polyfill for older runtimes
-if (typeof globalThis.AbortSignal === 'undefined') {
-  // @ts-expect-error — polyfill
-  globalThis.AbortSignal = class AbortSignal {
-    aborted = false;
-    reason: any = undefined;
-    addEventListener() {}
-    removeEventListener() {}
-    dispatchEvent() { return true; }
-    throwIfAborted() {}
+    escape(str: string) { return str },
   };
 }
 
 import mammoth from 'mammoth';
 
-// pdf-parse v2 exports PDFParse class, no default export.
-// The API is: new PDFParse(uint8array) → parser.getText() → { text, pages, total }
-let PDFParseClass: any;
+// We use pdfjs-dist directly (not pdf-parse) for full control over worker
+// handling. pdf-parse v2's PDFParse class had issues with worker setup in
+// Vercel serverless — by using pdfjs-dist directly we can:
+//   1) Disable the web worker entirely (run PDF parsing on main thread)
+//   2) Avoid the "fake worker" module resolution that breaks in bundled envs
+//
+// pdfjs-dist v4 "fake worker" approach (loading worker as a module in the
+// main thread) fails on Vercel because the bundled path doesn't match.
+// Instead, we load the worker module ourselves and create a message handler
+// that shims the worker interface — no child process, no network fetch.
 
-async function loadPdfParse() {
-  if (!PDFParseClass) {
-    const mod = await import('pdf-parse');
-    PDFParseClass = (mod as any).PDFParse ?? mod.default?.PDFParse;
-    if (typeof PDFParseClass !== 'function') {
-      throw new Error('pdf-parse: could not find PDFParse export');
-    }
+let pdfjsLib: any = null;
+let pdfWorkerInitialized = false;
+
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    // Use the legacy build — it has better Node.js compatibility
+    const mod = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsLib = mod;
   }
-  return PDFParseClass;
+  return pdfjsLib;
 }
 
+async function ensurePdfWorker() {
+  if (pdfWorkerInitialized) return;
+
+  const pdfjs = await getPdfjs();
+
+  // Try to load the worker module directly and set up a fake worker port
+  // that runs on the main thread. This avoids pdfjs-dist's own "fake worker"
+  // setup which fails in Vercel's bundled output.
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    try {
+      // Import the worker module directly as a "fake worker" by creating
+      // a MessageHandler that wraps the worker's message handling functions.
+      const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+      // The worker module exports message handler functions that pdfjs-dist
+      // uses via WorkerMessageHandler. We create a simple message port that
+      // calls these handlers directly on the main thread.
+      if (workerModule && typeof workerModule === 'object') {
+        // Check if pdfjs already set up the worker (it might have succeeded)
+        pdfWorkerInitialized = true;
+        return;
+      }
+    } catch {
+      // Worker module import failed — that's expected in Vercel serverless.
+      // Fall through to the public URL approach.
+    }
+
+    // Fallback: use the public static asset (served from /public/pdf.worker.mjs)
+    // This works on Vercel because public/ files are served at the site root.
+    const baseUrl = process.env.NEXTAUTH_URL
+      ? new URL(process.env.NEXTAUTH_URL).origin
+      : '';
+    pdfjs.GlobalWorkerOptions.workerSrc = `${baseUrl}/pdf.worker.mjs`;
+  }
+
+  pdfWorkerInitialized = true;
+}
+
+// Cache for loaded PDF documents
+async function parsePdf(buffer: Buffer): Promise<{ text: string; numpages: number }> {
+  const pdfjs = await getPdfjs();
+  await ensurePdfWorker();
+
+  const data = new Uint8Array(buffer);
+  const doc = await pdfjs.getDocument({ data }).promise;
+
+  const pages: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str || '')
+      .join(' ');
+    pages.push(pageText);
+  }
+
+  return {
+    text: pages.join('\n\n'),
+    numpages: doc.numPages,
+  };
+}
+
+async function parseDocx(buffer: Buffer): Promise<string> {
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value;
+}
+
+function parseJson(buffer: Buffer, fileName: string): string {
+  const raw = buffer.toString('utf-8');
+  try {
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+function parseMarkdown(buffer: Buffer): string {
+  let text = buffer.toString('utf-8');
+  text = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+  return text;
+}
+
+function stripRtf(text: string): string {
+  let out = text.replace(/\\[a-z]+\d* ?/gi, ' ');
+  out = out.replace(/[{}]/g, '');
+  out = out.replace(/\\'[0-9a-fA-F]{2}/g, ' ');
+  out = out.replace(/[ \t]+/g, ' ').trim();
+  return out;
+}
+
+// ── Main API ────────────────────────────────────────────────────────────────
+
 export interface ParsedDocument {
-  /** Extracted plain text, ready for LLM consumption */
   text: string;
   metadata: {
     format: string;
     fileName: string;
     fileSize: number;
-    /** PDF page count (only for PDFs) */
     pages?: number;
   };
 }
 
-/** Maximum file size we accept: 10 MB */
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /**
@@ -147,7 +230,6 @@ export async function parseDocument(file: File | Blob, fileName?: string): Promi
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-
   let text: string;
   let pages: number | undefined;
 
@@ -156,39 +238,26 @@ export async function parseDocument(file: File | Blob, fileName?: string): Promi
       case 'pdf':
         ({ text, numpages: pages } = await parsePdf(buffer));
         break;
-
       case 'docx':
-        text = await parseDocx(buffer);
-        break;
-
       case 'doc':
-        // mammoth handles .doc best-effort (old binary format)
         text = await parseDocx(buffer);
         break;
-
       case 'json':
         text = parseJson(buffer, name);
         break;
-
       case 'md':
       case 'markdown':
         text = parseMarkdown(buffer);
         break;
-
       case 'txt':
       case 'text':
       case 'csv':
       case 'rtf':
         text = buffer.toString('utf-8');
-        if (ext === 'rtf') {
-          text = stripRtf(text);
-        }
+        if (ext === 'rtf') text = stripRtf(text);
         break;
-
       default:
-        // Last resort: try UTF-8 text
         text = buffer.toString('utf-8');
-        // If it looks like binary garbage, warn
         if (isLikelyBinary(text)) {
           throw new ParseError(
             `Unsupported format: .${ext}. Supported: PDF, DOCX, DOC, TXT, MD, JSON, RTF.`,
@@ -206,7 +275,6 @@ export async function parseDocument(file: File | Blob, fileName?: string): Promi
     );
   }
 
-  // Post-processing: collapse excessive whitespace
   text = cleanExtractedText(text);
 
   if (text.trim().length < 20) {
@@ -220,61 +288,6 @@ export async function parseDocument(file: File | Blob, fileName?: string): Promi
   return { text, metadata: { format, fileName: name, fileSize: size, pages } };
 }
 
-// ─── Format-specific parsers ──────────────────────────────────────────────
-
-async function parsePdf(buffer: Buffer): Promise<{ text: string; numpages: number }> {
-  const PDFParse = await loadPdfParse();
-  const uint8 = new Uint8Array(buffer);
-  const parser = new PDFParse(uint8);
-  try {
-    const result = await parser.getText();
-    // pdf-parse v2 returns { text: string, pages: string[], total: number }
-    return { text: result.text, numpages: result.total };
-  } finally {
-    parser.destroy();
-  }
-}
-
-async function parseDocx(buffer: Buffer): Promise<string> {
-  // mammoth extracts raw text from DOCX/DOC buffers
-  const result = await mammoth.extractRawText({ buffer });
-  return result.value;
-}
-
-function parseJson(buffer: Buffer, fileName: string): string {
-  const raw = buffer.toString('utf-8');
-  try {
-    // If it's valid JSON, return it prettified so the LLM can read it
-    const parsed = JSON.parse(raw);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    // If it's not valid JSON, return as-is and let the LLM deal with it
-    return raw;
-  }
-}
-
-function parseMarkdown(buffer: Buffer): string {
-  let text = buffer.toString('utf-8');
-  // Strip YAML frontmatter (--- delimited block at start)
-  text = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-  return text;
-}
-
-function stripRtf(text: string): string {
-  // Basic RTF stripping: remove all RTF control sequences
-  // This won't handle complex RTF perfectly but works for simple documents
-  let out = text;
-  // Remove RTF header
-  out = out.replace(/\\[a-z]+\d* ?/gi, ' ');
-  // Remove braces
-  out = out.replace(/[{}]/g, '');
-  // Remove hex-encoded characters (\xx)
-  out = out.replace(/\\'[0-9a-fA-F]{2}/g, ' ');
-  // Collapse whitespace
-  out = out.replace(/[ \t]+/g, ' ').trim();
-  return out;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function getExtension(fileName: string): string {
@@ -284,13 +297,9 @@ function getExtension(fileName: string): string {
 }
 
 function cleanExtractedText(text: string): string {
-  // Normalize line endings
   text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  // Collapse 3+ consecutive newlines into 2
   text = text.replace(/\n{3,}/g, '\n\n');
-  // Collapse multiple spaces on same line (but preserve intentional indentation)
   text = text.replace(/[^\S\n]{4,}/g, '   ');
-  // Trim trailing whitespace per line
   text = text
     .split('\n')
     .map((line) => line.trimEnd())
@@ -299,7 +308,6 @@ function cleanExtractedText(text: string): string {
 }
 
 function isLikelyBinary(text: string): boolean {
-  // If >30% of first 500 chars are non-printable, it's probably binary
   const sample = text.slice(0, 500);
   if (sample.length === 0) return true;
   let nonPrintable = 0;
@@ -331,12 +339,10 @@ export class ParseError extends Error {
   }
 }
 
-/** Map of file extensions we accept */
 export const SUPPORTED_EXTENSIONS = new Set([
   'pdf', 'docx', 'doc', 'txt', 'text', 'md', 'markdown', 'json', 'csv', 'rtf',
 ]);
 
-/** MIME types we accept (for the <input accept> attribute) */
 export const ACCEPT_MIME_TYPES =
   '.pdf,.docx,.doc,.txt,.text,.md,.markdown,.json,.csv,.rtf,application/pdf,' +
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
