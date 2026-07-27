@@ -69,17 +69,20 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
     if (['pdf'].includes(ext)) return '📄';
     if (['docx', 'doc'].includes(ext)) return '📝';
+    if (['pptx', 'ppt'].includes(ext)) return '📊';
+    if (['xlsx', 'xls'].includes(ext)) return '📈';
     if (['md', 'markdown'].includes(ext)) return '📋';
     if (['json'].includes(ext)) return '{}';
+    if (['html', 'htm'].includes(ext)) return '🌐';
     return '📄';
   }
 
   function handleFileSelect(file: File) {
     // Validate extension client-side for immediate feedback
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    const allowed = new Set(['pdf', 'docx', 'doc', 'txt', 'text', 'md', 'markdown', 'json', 'csv', 'rtf']);
+    const allowed = new Set(['pdf', 'docx', 'doc', 'pptx', 'ppt', 'xlsx', 'xls', 'txt', 'text', 'md', 'markdown', 'json', 'csv', 'rtf', 'html', 'htm']);
     if (!allowed.has(ext)) {
-      toast.error(`Unsupported format: .${ext}. Supported: PDF, DOCX, DOC, TXT, MD, JSON.`);
+      toast.error(`Unsupported format: .${ext}. Supported: PDF, DOCX, DOC, PPTX, XLSX, TXT, MD, JSON, CSV, RTF, HTML.`);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -304,7 +307,7 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
                   <Input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.docx,.doc,.txt,.text,.md,.markdown,.json,.csv,.rtf"
+                    accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.txt,.text,.md,.markdown,.json,.csv,.rtf,.html,.htm"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
