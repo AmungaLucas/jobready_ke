@@ -1,16 +1,17 @@
 # Python dependencies for the /api/parse-document serverless function.
 # Vercel's Python runtime reads this file from the api/ directory.
 #
-# markitdown — Microsoft's production-grade document-to-markdown converter.
-#   Handles PDF, DOCX, PPTX, XLSX, HTML, TXT, MD, JSON, CSV, RTF, images.
-#   We don't use [all] extras (those pull in transformers / azure-ai for
-#   image & audio transcription — heavy ML deps we don't need).
+# markitdown[pdf] — Microsoft's document-to-markdown converter WITH the PDF
+#   extra (pulls in pdfminer.six). Without [pdf], MarkItDown raises
+#   MissingDependencyException when given a PDF.
+#
+# We install [pdf] explicitly rather than [all] because [all] also pulls in
+# transformers / azure-ai for image & audio transcription — heavy ML deps
+# that bloat the function and slow cold starts.
 #
 # flask — WSGI framework; Vercel's Python runtime auto-detects `app = Flask(...)`
-#
-# werkzeug — pinned security baseline (Flask transitive dep, but Vercel
-#   sometimes needs an explicit pin to avoid CVE-driven build failures).
+# werkzeug — pinned security baseline (Flask transitive dep).
 
-markitdown>=0.0.1
+markitdown[pdf]>=0.0.1
 flask>=3.0.0
 werkzeug>=3.0.0
