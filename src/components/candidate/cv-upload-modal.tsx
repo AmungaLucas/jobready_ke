@@ -132,7 +132,9 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || 'Upload failed');
+        const detailMsg = data.details ? ` — ${data.details}` : '';
+        toast.error(`${data.error || 'Upload failed'}${detailMsg}`);
+        console.error('CV upload error details:', data);
         return;
       }
       setResult(data.extracted);

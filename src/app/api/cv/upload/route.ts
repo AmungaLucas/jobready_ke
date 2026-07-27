@@ -337,8 +337,14 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('CV upload error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     return NextResponse.json(
-      { error: 'Failed to process CV. Please try again.' },
+      {
+        error: 'Failed to process CV. Please try again.',
+        details: message,
+        stack: process.env.NODE_ENV === 'development' ? stack : undefined,
+      },
       { status: 500 },
     );
   }
