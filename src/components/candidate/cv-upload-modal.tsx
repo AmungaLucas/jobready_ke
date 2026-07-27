@@ -76,7 +76,7 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
 
   function handleFileSelect(file: File) {
     // Validate extension client-side for immediate feedback
-    const ext = file.split('.').pop()?.toLowerCase() ?? '';
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     const allowed = new Set(['pdf', 'docx', 'doc', 'txt', 'text', 'md', 'markdown', 'json', 'csv', 'rtf']);
     if (!allowed.has(ext)) {
       toast.error(`Unsupported format: .${ext}. Supported: PDF, DOCX, DOC, TXT, MD, JSON.`);
@@ -107,6 +107,7 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
         formData.append('consent', 'true');
         res = await fetch('/api/cv/upload', {
           method: 'POST',
+          credentials: 'include',
           body: formData,
           // Do NOT set Content-Type — browser sets multipart boundary automatically
         });
@@ -120,6 +121,7 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
         }
         res = await fetch('/api/cv/upload', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rawText, consent: true }),
         });
@@ -140,7 +142,9 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
     } catch (err) {
-      toast.error('Upload failed — please try again');
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      console.error('CV upload error:', err);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
