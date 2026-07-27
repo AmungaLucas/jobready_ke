@@ -1,0 +1,544 @@
+## 2. Specializations (by Career Family)
+
+### ENG - Engineering
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ENG-MEC | Mechanical Engineering | Design, analysis, and maintenance of mechanical systems and machinery |
+| ENG-ELE | Electrical Engineering | Power systems, electrical design, and electrical infrastructure |
+| ENG-CIV | Civil Engineering | Structural design, transportation infrastructure, and geotechnical engineering |
+| ENG-CHE | Chemical Engineering | Process design, chemical processing, and petrochemical operations |
+| ENG-IND | Industrial Engineering | Process optimization, lean manufacturing, and systems efficiency |
+| ENG-AER | Aerospace Engineering | Aircraft and spacecraft design, propulsion, and avionics systems |
+| ENG-ENE | Energy Engineering | Power plant design, renewable energy systems, and energy management |
+| ENG-BIO | Biomedical Engineering | Medical device design, biomaterials, and clinical engineering |
+| ENG-TEL | Telecom Engineering | Telecommunications infrastructure, network design, and RF engineering |
+| ENG-MAR | Marine Engineering | Ship systems, offshore structures, and marine propulsion |
+| ENG-ENV | Environmental Engineering | Water treatment, pollution control, and environmental systems design |
+| ENG-MIN | Mining Engineering | Mine design, mineral processing, and extraction engineering |
+| ENG-AUT | Automation & Control | PLC, SCADA, DCS, robotics, and industrial automation systems |
+| ENG-QUA | Quality Engineering | Quality systems, inspection, testing, and reliability engineering |
+| ENG-FFE | Fire & Safety Engineering | Fire protection systems, safety engineering, and hazard analysis |
+| ENG-SUR | Surveying & Geomatics | Land surveying, GIS, mapping, and geospatial analysis |
+
+### ITT - Information Technology
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ITT-SFT | Software Development | Application development, coding, and software engineering |
+| ITT-WEB | Web Development | Frontend, backend, and full-stack web application development |
+| ITT-MOB | Mobile Development | iOS, Android, and cross-platform mobile application development |
+| ITT-INF | Infrastructure & Cloud | Server administration, cloud architecture, and DevOps |
+| ITT-DBA | Database Administration | Database design, administration, and data management |
+| ITT-NET | Network Engineering | Network design, implementation, and network administration |
+| ITT-SPK | System Administration | Server management, OS administration, and system monitoring |
+| ITT-QAT | QA & Testing | Software testing, quality assurance, and test automation |
+| ITT-UID | UI/UX Design | User interface design, user experience research, and interaction design |
+| ITT-DTA | Data Engineering | Data pipeline development, ETL, and data architecture |
+| ITT-DEV | DevOps & SRE | CI/CD, site reliability, containerization, and infrastructure as code |
+| ITT-HLP | IT Support & Helpdesk | Technical support, troubleshooting, and end-user computing |
+
+### HLT - Healthcare & Medical
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| HLT-MED | General Medicine | Primary care, internal medicine, and general practice |
+| HLT-SUR | Surgery | General and specialized surgical procedures and perioperative care |
+| HLT-PED | Pediatrics | Child health, neonatal care, and pediatric medicine |
+| HLT-OBG | Obstetrics & Gynecology | Maternal health, reproductive medicine, and women's health |
+| HLT-NUR | Nursing | Patient care, clinical nursing, and nursing administration |
+| HLT-PHA | Pharmacy | Drug dispensing, pharmacology, and pharmaceutical care |
+| HLT-LAB | Medical Laboratory | Clinical laboratory science, diagnostics, and pathology |
+| HLT-RAD | Radiology & Imaging | Medical imaging, radiology, and diagnostic imaging |
+| HLT-PTH | Physiotherapy & Rehab | Physical therapy, rehabilitation, and sports medicine |
+| HLT-PSY | Psychiatry & Mental Health | Mental health care, psychiatric treatment, and counseling |
+| HLT-EME | Emergency Medicine | Emergency care, trauma management, and critical care |
+| HLT-DEN | Dentistry | Dental care, oral surgery, and dental public health |
+| HLT-PUB | Public Health | Epidemiology, health policy, disease prevention, and community health |
+| HLT-NUT | Nutrition & Dietetics | Clinical nutrition, dietetics, and food service management |
+| HLT-OPH | Ophthalmology | Eye care, vision testing, and ophthalmic surgery |
+
+### FIN - Finance & Accounting
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| FIN-AUD | Auditing | Internal and external auditing, forensic accounting, and compliance audit |
+| FIN-TAX | Taxation | Tax planning, tax compliance, and tax advisory services |
+| FIN-ACC | Financial Accounting | Financial reporting, bookkeeping, and general ledger management |
+| FIN-MGT | Management Accounting | Cost accounting, budgeting, and financial analysis |
+| FIN-TRE | Treasury | Cash management, liquidity planning, and treasury operations |
+| FIN-RSK | Financial Risk Management | Risk assessment, credit risk, and market risk analysis |
+| FIN-INV | Investment & Asset Management | Portfolio management, investment analysis, and wealth management |
+| FIN-FCO | Forex & Commodities | Foreign exchange, commodities trading, and derivatives |
+
+### EDU - Education & Training
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| EDU-EAR | Early Childhood Education | Pre-school, kindergarten, and early childhood development |
+| EDU-PRI | Primary Education | Elementary school teaching and curriculum delivery |
+| EDU-SEC | Secondary Education | High school teaching and subject specialization |
+| EDU-TER | Tertiary Education | University teaching, lecturing, and academic research |
+| EDU-VOG | Vocational & Technical Education | TVET, skills training, and practical education |
+| EDU-ADM | Education Administration | School leadership, education management, and policy |
+| EDU-SPN | Special Needs Education | Inclusive education, disability support, and specialized instruction |
+| EDU-CUR | Curriculum Development | Curriculum design, educational assessment, and learning materials |
+| EDU-ONL | E-Learning & EdTech | Online education, educational technology, and digital learning |
+
+### LEG - Legal & Compliance
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| LEG-COR | Corporate & Commercial Law | Business law, M&A, corporate governance, and contracts |
+| LEG-LIT | Litigation & Dispute Resolution | Court representation, arbitration, and dispute resolution |
+| LEG-EMP | Employment & Labor Law | Labor relations, employment disputes, and workplace compliance |
+| LEG-PRP | Property & Land Law | Real estate transactions, land tenure, and property disputes |
+| LEG-CRI | Criminal Law | Criminal defense, prosecution, and criminal justice |
+| LEG-INT | International Law | International trade, human rights, and diplomatic law |
+| LEG-IPL | Intellectual Property Law | Patents, trademarks, copyrights, and trade secrets |
+| LEG-ENV | Environmental & Natural Resource Law | Environmental regulation, land use, and resource rights |
+| LEG-CMP | Compliance & Regulatory | Regulatory compliance, anti-corruption, and governance frameworks |
+
+### MKT - Marketing & Advertising
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| MKT-DIG | Digital Marketing | SEO, SEM, social media marketing, and online advertising |
+| MKT-BRD | Brand Management | Brand strategy, brand identity, and brand positioning |
+| MKT-MRE | Market Research & Insights | Consumer research, data analytics, and market intelligence |
+| MKT-COM | Communications & PR | Public relations, corporate communications, and media relations |
+| MKT-CON | Content Marketing | Content strategy, copywriting, and content operations |
+| MKT-EVE | Events & Experiential | Event planning, brand activations, and experiential marketing |
+| MKT-TRA | Trade Marketing | B2B marketing, channel marketing, and distributor support |
+| MKT-PRO | Product Marketing | Product positioning, go-to-market strategy, and product launches |
+
+### SAL - Sales & Business Development
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| SAL-RET | Retail Sales | In-store sales, customer service, and point-of-sale operations |
+| SAL-COR | Corporate & B2B Sales | Enterprise sales, account management, and business solutions |
+| SAL-DIR | Direct Sales | Door-to-door, telesales, and direct-to-consumer sales |
+| SAL-CHN | Channel & Distribution Sales | Distributor management, wholesale, and channel partnerships |
+| SAL-TEC | Technical Sales | Solution selling, presales engineering, and technical demonstrations |
+| SAL-KEY | Key Account Management | Strategic account management, relationship building, and retention |
+| SAL-INT | International Sales | Export sales, cross-border trade, and global account management |
+
+### HRM - Human Resources
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| HRM-REC | Talent Acquisition & Recruitment | Sourcing, interviewing, hiring, and onboarding |
+| HRM-ERL | Employee Relations | Workplace conflict, disciplinary processes, and labor relations |
+| HRM-CBN | Compensation & Benefits | Payroll, salary structures, benefits administration, and rewards |
+| HRM-TRN | Learning & Development | Training programs, skills development, and organizational learning |
+| HRM-ODV | Organizational Development | Change management, culture, and organizational design |
+| HRM-HRS | HR Systems & Analytics | HRIS, people analytics, and HR technology |
+| HRM-EXP | Expatriate & Global Mobility | Immigration, relocation, and international assignments |
+
+### OSC - Operations & Supply Chain
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| OSC-PRO | Procurement & Purchasing | Strategic sourcing, vendor management, and purchasing operations |
+| OSC-LOG | Logistics & Distribution | Transportation, warehousing, and last-mile delivery |
+| OSC-INV | Inventory & Warehouse Management | Stock control, warehouse operations, and inventory planning |
+| OSC-PLN | Production Planning | Scheduling, capacity planning, and demand forecasting |
+| OSC-SCM | Supply Chain Management | End-to-end supply chain strategy, optimization, and analytics |
+| OSC-QAL | Quality & Continuous Improvement | Lean, Six Sigma, and continuous improvement programs |
+
+### AGR - Agriculture & Agribusiness
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| AGR-CRP | Crop Production | Field crops, horticulture, and agronomy |
+| AGR-LIV | Livestock & Animal Husbandry | Cattle, poultry, dairy, and animal production |
+| AGR-AQB | Aquaculture & Fisheries | Fish farming, marine fisheries, and aquaculture management |
+| AGR-AGI | Agribusiness & Value Chains | Agricultural business, value addition, and market access |
+| AGR-AGT | Agricultural Technology | Precision agriculture, farm automation, and agri-tech |
+| AGR-EXT | Agricultural Extension | Farmer training, advisory services, and rural development |
+| AGR-SOL | Soil & Water Conservation | Soil science, irrigation, and water management |
+| AGR-FRS | Forestry & Agroforestry | Forest management, timber production, and agroforestry systems |
+
+### MIN - Mining & Resources
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| MIN-SRF | Surface Mining | Open-pit mining, strip mining, and quarrying operations |
+| MIN-UND | Underground Mining | Sub-surface mining, tunneling, and underground operations |
+| MIN-PRO | Mineral Processing | Crushing, grinding, flotation, and extractive metallurgy |
+| MIN-GEO | Geology & Exploration | Geological surveying, mineral exploration, and resource estimation |
+| MIN-MSE | Mine Safety & Environment | Mine safety, ventilation, and environmental compliance |
+| MIN-SRV | Mining Services & Support | Drilling, blasting, and mining contracting services |
+
+### CON - Construction & Built Environment
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| CON-BLD | Building Construction | Residential, commercial, and institutional building construction |
+| CON-CIV | Civil Works & Infrastructure | Roads, bridges, water systems, and civil infrastructure |
+| CON-ARC | Architecture & Design | Architectural design, building planning, and space design |
+| CON-QSM | Quantity Surveying | Cost estimation, measurement, and construction economics |
+| CON-SIT | Site Management | Construction site supervision, safety, and project coordination |
+| CON-MEP | MEP Services | Mechanical, electrical, and plumbing building services |
+| CON-HSE | Health, Safety & Environment | Construction safety, environmental management, and HSE compliance |
+
+### ENU - Energy & Utilities
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ENU-REN | Renewable Energy | Solar, wind, hydro, and geothermal energy systems |
+| ENU-PPG | Power Generation | Thermal, nuclear, and conventional power plant operations |
+| ENU-TND | Transmission & Distribution | Power grid, substations, and electrical transmission |
+| ENU-OIL | Petroleum & Gas Energy | Upstream, midstream, and downstream energy operations |
+| ENU-MNG | Energy Management | Energy efficiency, audits, and sustainability management |
+| ENU-STR | Energy Storage | Battery systems, pumped hydro, and energy storage solutions |
+
+### MFG - Manufacturing & Production
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| MFG-ASM | Assembly & Production | Product assembly, line operations, and production execution |
+| MFG-PRC | Process Engineering | Manufacturing process design, optimization, and control |
+| MFG-MNT | Maintenance & Reliability | Plant maintenance, predictive maintenance, and reliability engineering |
+| MFG-QLT | Quality Control | Product inspection, testing, and quality management systems |
+| MFG-PLN | Production Planning & Scheduling | Production scheduling, capacity planning, and MRP |
+| MFG-PKG | Packaging | Packaging design, packaging operations, and labeling |
+| MFG-WLD | Welding & Fabrication | Welding, metal fabrication, and structural steelwork |
+
+### BFS - Banking & Financial Services
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| BFS-RET | Retail Banking | Personal banking, savings, loans, and branch operations |
+| BFS-COR | Corporate & Investment Banking | Corporate lending, investment banking, and capital markets |
+| BFS-MIC | Microfinance | Micro-lending, group lending, and financial inclusion |
+| BFS-MBN | Mobile & Digital Banking | Mobile money, digital wallets, and fintech banking |
+| BFS-RCM | Risk & Credit Management | Credit scoring, risk assessment, and loan portfolio management |
+| BFS-COM | Compliance & AML | Anti-money laundering, KYC, and banking regulatory compliance |
+| BFS-TRE | Treasury Operations | Bank treasury, liquidity management, and asset-liability management |
+
+### INS - Insurance
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| INS-UND | Underwriting | Risk evaluation, policy pricing, and underwriting decisions |
+| INS-CLM | Claims Management | Claims processing, assessment, and settlement |
+| INS-ACT | Actuarial Services | Risk modeling, pricing, and statistical analysis |
+| INS-BRK | Insurance Broking | Insurance advisory, brokerage, and client service |
+| INS-RSK | Risk & Loss Prevention | Risk surveys, loss prevention, and risk engineering |
+
+### REE - Real Estate & Property
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| REE-AGN | Real Estate Agency | Property sales, leasing, and real estate brokerage |
+| REE-VAL | Property Valuation | Property appraisal, valuation, and assessment |
+| REE-MGT | Property Management | Tenant management, property maintenance, and lease administration |
+| REE-DEV | Real Estate Development | Property development, land subdivision, and project management |
+| REE-INV | Real Estate Investment | Property investment analysis, REITs, and real estate funds |
+
+### TOH - Tourism & Hospitality
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| TOH-HOT | Hotel & Lodge Management | Hotel operations, front office, and accommodation management |
+| TOH-RES | Restaurant & Food Service | Restaurant management, food service, and catering |
+| TOH-TRV | Travel & Tours | Travel agency, tour operations, and travel planning |
+| TOH-EVE | Events & Conferences | Event management, conference planning, and MICE |
+| TOH-CUL | Culinary & Kitchen | Chef and kitchen operations, menu planning, and food preparation |
+
+### TRL - Transportation & Logistics
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| TRL-FLT | Fleet Management | Vehicle fleet operations, maintenance scheduling, and fleet analytics |
+| TRL-FRG | Freight & Cargo | Freight forwarding, cargo handling, and shipping coordination |
+| TRL-PUB | Public Transportation | Bus, rail, and mass transit operations and management |
+| TRL-DRV | Professional Driving | Commercial driving, heavy vehicle operation, and transport logistics |
+
+### GPA - Government & Public Administration
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| GPA-POL | Public Policy | Policy development, analysis, and government strategy |
+| GPA-CIV | Civil Service | Public administration, government operations, and service delivery |
+| GPA-MUN | Municipal & Local Government | County/municipal governance, urban planning, and local services |
+| GPA-REV | Revenue & Tax Administration | Tax collection, customs, and public revenue management |
+| GPA-DEF | Defense & Security Services | Military, paramilitary, and national security administration |
+
+### NPO - Non-Profit & Development
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| NPO-PRG | Program Management | Development programs, project implementation, and M&E |
+| NPO-FND | Fundraising & Grants | Grant writing, donor relations, and fundraising strategy |
+| NPO-MNE | Monitoring & Evaluation | Program evaluation, impact assessment, and data collection |
+| NPO-ADV | Advocacy & Campaigns | Policy advocacy, public campaigns, and community mobilization |
+| NPO-HUM | Humanitarian & Emergency | Disaster response, relief operations, and humanitarian coordination |
+
+### MEC - Media & Communications
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| MEC-JRN | Journalism & News | News reporting, editing, and investigative journalism |
+| MEC-PUB | Publishing & Editorial | Book publishing, editorial services, and content production |
+| MEC-BRD | Broadcasting & Production | TV and radio production, broadcasting, and media production |
+| MEC-SOC | Social Media & Digital Content | Social media management, content creation, and digital engagement |
+
+### CAD - Creative Arts & Design
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| CAD-GRD | Graphic Design | Visual design, branding, print design, and digital graphics |
+| CAD-UXD | UX/UI Design | User experience, interface design, and design systems |
+| CAD-PHO | Photography & Videography | Photography, video production, and visual storytelling |
+| CAD-ANI | Animation & Motion Graphics | 2D/3D animation, motion design, and visual effects |
+| CAD-FSH | Fashion & Textile Design | Fashion design, textile design, and apparel creation |
+| CAD-INR | Interior & Spatial Design | Interior design, space planning, and commercial design |
+
+### RCG - Retail & Consumer Goods
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| RCG-STO | Store Operations | Retail store management, visual merchandising, and customer experience |
+| RCG-BUY | Buying & Merchandising | Product sourcing, assortment planning, and buying strategy |
+| RCG-ECM | E-Commerce Retail | Online retail, marketplace management, and digital merchandising |
+| RCG-SCM | Retail Supply Chain | Retail logistics, distribution, and inventory management |
+
+### TEL - Telecommunications
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| TEL-NET | Network Infrastructure | Telecom network design, deployment, and optimization |
+| TEL-MOB | Mobile Services | Mobile network operations, MVNO, and wireless services |
+| TEL-ISP | Internet & ISP Services | Broadband, fiber, and internet service provision |
+| TEL-VAS | Value Added Services | Mobile money, SMS services, and value-added telecom products |
+
+### CNT - Consulting & Advisory
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| CNT-MGT | Management Consulting | Strategy consulting, business transformation, and advisory |
+| CNT-FIN | Financial Advisory | Transaction advisory, restructuring, and financial consulting |
+| CNT-TCH | Technology Consulting | IT strategy, digital transformation, and tech advisory |
+| CNT-HRM | HR Consulting | HR strategy, talent consulting, and organizational advisory |
+
+### PHA - Pharmaceutical & Life Sciences
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| PHA-RND | Pharmaceutical R&D | Drug discovery, formulation, and clinical trials |
+| PHA-REG | Pharmacovigilance & Regulatory | Drug safety, regulatory affairs, and compliance |
+| PHA-MFG | Pharmaceutical Manufacturing | Drug production, GMP, and pharmaceutical operations |
+| PHA-SAL | Pharmaceutical Sales | Medical detailing, pharma sales, and key opinion leader engagement |
+| PHA-DSP | Pharmacy & Distribution | Pharmacy operations, drug distribution, and supply chain |
+
+### BIO - Biotechnology & Research
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| BIO-RES | Laboratory Research | Wet lab research, experimental design, and lab management |
+| BIO-BIP | Bioprocessing | Fermentation, downstream processing, and biomanufacturing |
+| BIO-INF | Bioinformatics | Computational biology, genomic analysis, and biological data science |
+| BIO-GEN | Genetics & Genomics | Genetic testing, gene therapy, and genomic research |
+
+### ENV - Environmental & Sustainability
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ENV-CNS | Conservation & Biodiversity | Wildlife conservation, ecosystem management, and biodiversity |
+| ENV-WAT | Water & Sanitation | WASH, water resource management, and sanitation systems |
+| ENV-CLM | Climate & Carbon | Climate adaptation, carbon markets, and climate resilience |
+| ENV-ESG | ESG & Sustainability | Environmental, social, and governance reporting and strategy |
+| ENV-IMP | Environmental Impact Assessment | EIA studies, environmental audits, and impact monitoring |
+
+### AUT - Automotive
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| AUT-ASS | Vehicle Assembly | Motor vehicle assembly, production lines, and quality control |
+| AUT-REP | Auto Repair & Servicing | Vehicle diagnostics, repair, and maintenance services |
+| AUT-ELC | Automotive Electrical | Vehicle electrical systems, diagnostics, and electronics |
+| AUT-BOD | Body & Paint | Auto body repair, painting, and collision repair |
+| AUT-PTS | Parts & Accessories | Auto parts sales, inventory, and supply chain |
+
+### AVA - Aviation & Aerospace
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| AVA-PLT | Flight Operations | Piloting, flight planning, and cockpit operations |
+| AVA-AMT | Aircraft Maintenance | Aircraft maintenance, repair, overhaul (MRO), and line maintenance |
+| AVA-ATC | Air Traffic Control | Air traffic management, flight navigation, and airspace control |
+| AVA-APM | Airport Management | Airport operations, terminal management, and ground services |
+| AVA-SEC | Aviation Security | Aviation safety, security screening, and regulatory compliance |
+
+### MAR - Maritime & Shipping
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| MAR-OPS | Port Operations | Port management, terminal operations, and cargo handling |
+| MAR-SHP | Shipping & Navigation | Vessel operations, navigation, and maritime transport |
+| MAR-MEN | Marine Engineering | Ship engines, marine systems, and onboard engineering |
+| MAR-LOG | Maritime Logistics | Shipping logistics, freight forwarding, and maritime trade |
+
+### OIL - Oil & Gas
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| OIL-UPS | Upstream Operations | Exploration, drilling, and production |
+| OIL-MID | Midstream Operations | Pipeline transport, LNG, and gas processing |
+| OIL-DWN | Downstream Operations | Refining, petrochemicals, and fuel distribution |
+| OIL-SRV | Oilfield Services | Drilling services, well intervention, and oilfield support |
+| OIL-HSE | Oil & Gas Safety | Process safety, HSE management, and regulatory compliance |
+
+### FNB - Food & Beverage
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| FNB-PRD | Food Production & Processing | Food manufacturing, processing, and packaging |
+| FNB-QLT | Food Safety & Quality | HACCP, food safety systems, and quality assurance |
+| FNB-BEV | Beverage Production | Brewing, bottling, juice production, and beverage manufacturing |
+| FNB-NEW | New Product Development | Food R&D, recipe development, and sensory evaluation |
+
+### TEX - Textile & Apparel
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| TEX-MFG | Textile Manufacturing | Spinning, weaving, knitting, and textile production |
+| TEX-GAR | Garment Production | Cutting, sewing, finishing, and apparel manufacturing |
+| TEX-QLT | Textile Quality | Textile testing, quality control, and standards compliance |
+| TEX-DSC | Textile Design | Fabric design, print design, and textile patterns |
+
+### SED - Security & Defense
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| SED-PHY | Physical Security | Guarding, access control, and security operations |
+| SED-INV | Investigation & Intelligence | Private investigation, fraud detection, and intelligence |
+| SED-ELE | Electronic Security | CCTV, alarms, access systems, and security technology |
+| SED-CRI | Crisis & Emergency Management | Crisis response, business continuity, and emergency planning |
+
+### SWC - Social Work & Community
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| SWC-CSW | Community Social Work | Community development, social services, and case management |
+| SWC-CHD | Child & Family Services | Child protection, family support, and welfare services |
+| SWC-CNS | Counseling & Psychotherapy | Psychological counseling, therapy, and mental health support |
+| SWC-GER | Geriatric & Elder Care | Elderly care, gerontology, and aged care services |
+
+### DSA - Data Science & Analytics
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| DSA-ANA | Data Analysis | Statistical analysis, data interpretation, and reporting |
+| DSA-BIZ | Business Intelligence | BI tools, dashboards, KPI reporting, and data warehousing |
+| DSA-MCH | Machine Learning Engineering | ML model development, deployment, and MLOps |
+| DSA-ENR | Data Engineering | Data pipelines, ETL, data architecture, and big data |
+| DSA-VIZ | Data Visualization | Visual analytics, dashboard design, and data storytelling |
+
+### CYS - Cybersecurity
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| CYS-SOC | Security Operations Center | Security monitoring, incident response, and threat hunting |
+| CYS-GOV | Security Governance | Security policy, risk management, and compliance frameworks |
+| CYS-PEN | Penetration Testing | Vulnerability assessment, penetration testing, and red teaming |
+| CYS-APP | Application Security | Secure development, code review, and DevSecOps |
+| CYS-FRS | Forensics & Incident Response | Digital forensics, incident investigation, and evidence analysis |
+
+### AIM - AI & Machine Learning
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| AIM-NLP | Natural Language Processing | Text analysis, language models, and conversational AI |
+| AIM-CVI | Computer Vision | Image recognition, object detection, and visual AI |
+| AIM-MLO | ML Operations & Platform | ML infrastructure, model deployment, and AI platforms |
+| AIM-ETH | AI Ethics & Governance | Responsible AI, bias detection, and AI regulation |
+| AIM-ROB | Robotics & Automation | Autonomous systems, robotic process automation, and AI agents |
+
+### ECM - E-Commerce & Digital
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ECM-PLT | Platform Management | Marketplace operations, seller management, and platform strategy |
+| ECM-PAY | Digital Payments | Payment gateways, mobile money integration, and fintech |
+| ECM-DRP | Dropshipping & Fulfillment | Order fulfillment, dropshipping, and last-mile delivery |
+| ECM-MKT | E-Commerce Marketing | Online advertising, marketplace SEO, and conversion optimization |
+
+### PFM - Facilities & Property Management
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| PFM-MNT | Building Maintenance | Preventive maintenance, repairs, and building systems |
+| PFM-CLN | Cleaning & Janitorial | Commercial cleaning, janitorial services, and hygiene management |
+| PFM-SEC | Facilities Security | Building security, access control, and surveillance |
+| PFM-VND | Vendor & Contract Management | Service provider management, SLAs, and contract administration |
+| PFM-SPC | Space & Workplace Management | Office space planning, workplace services, and amenity management |
+
+### SPR - Sports & Recreation
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| SPR-MGT | Sports Management | Sports administration, club management, and sports business |
+| SPR-COA | Coaching & Training | Sports coaching, fitness training, and athletic development |
+| SPR-FIT | Fitness & Wellness | Personal training, gym management, and wellness programs |
+| SPR-EVT | Sports Events | Tournament organization, sports event management, and logistics |
+
+### VAH - Veterinary & Animal Health
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| VAH-CLN | Veterinary Clinical Practice | Small and large animal medicine, surgery, and diagnostics |
+| VAH-LIV | Livestock Health | Herd health, preventive medicine, and livestock management |
+| VAH-PUB | Veterinary Public Health | Zoonotic disease control, food safety, and veterinary regulation |
+
+### WMS - Waste & Sanitation Management
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| WMS-COL | Waste Collection | Solid waste collection, fleet management, and route optimization |
+| WMS-REC | Recycling & Recovery | Material recovery, recycling operations, and circular economy |
+| WMS-TRT | Waste Treatment | Waste processing, composting, and waste-to-energy |
+| WMS-HZD | Hazardous Waste | Hazardous waste handling, treatment, and disposal |
+
+### DPS - Domestic & Personal Services
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| DPS-HSK | Housekeeping & Cleaning | Residential and commercial cleaning services |
+| DPS-CHD | Childcare & Nannying | Childcare, early childhood support, and nanny services |
+| DPS-COO | Cooking & Personal Chef | Meal preparation, personal chef services, and catering |
+| DPS-GRD | Gardening & Landscaping | Landscape maintenance, gardening, and groundskeeping |
+
+### PRJ - Project & Program Management
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| PRJ-CMP | Construction Project Management | Construction PM, contract administration, and site management |
+| PRJ-ITP | IT Project Management | Software project delivery, agile, and IT PMO |
+| PRJ-OIL | Oil & Gas Project Management | Energy project delivery, EPC management, and megaprojects |
+| PRJ-DEV | Development Project Management | Development sector PM, donor-funded projects, and program management |
+| PRJ-PMO | PMO & Portfolio Management | Project management office, portfolio governance, and PPM |
+
+### QAC - Quality & Compliance
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| QAC-QMS | Quality Management Systems | ISO 9001, QMS implementation, and quality audits |
+| QAC-REG | Regulatory Compliance | Industry regulation, licensing, and compliance management |
+| QAC-HSE | HSE Management | Health, safety, and environment management systems |
+| QAC-FDI | Food & Drug Inspection | Quality inspection, standards enforcement, and regulatory affairs |
+
+### ADM - Administration & Office Support
+
+| Code | Specialization | Description |
+|------|---------------|-------------|
+| ADM-OFC | Office Management | Office administration, operations, and facilities coordination |
+| ADM-EXC | Executive Assistance | Executive PA, C-suite support, and board administration |
+| ADM-REC | Records & Data Management | File management, records keeping, and document control |
+| ADM-FRO | Front Office & Reception | Reception, visitor management, and customer-facing admin |
+| ADM-DTE | Data Entry & Clerical | Data entry, typing, filing, and clerical support |
+
+---

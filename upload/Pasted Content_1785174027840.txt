@@ -1,0 +1,797 @@
+## 4. Skills
+
+Total: **1954** normalized skills.
+
+### ENG-MEC - Mechanical Engineering (60 skills)
+
+| AutoCAD | SolidWorks | CATIA | ANSYS |
+| MATLAB | Thermodynamics | Fluid Mechanics | Heat Transfer |
+| Machine Design | FEA | GD&T | HVAC Design |
+| Piping Design | Pressure Vessel Design | Welding Engineering | Corrosion Engineering |
+| Materials Science | Metallurgy | Failure Analysis | Root Cause Analysis |
+| Reliability Engineering | Maintenance Planning | Predictive Maintenance | Condition Monitoring |
+| Vibration Analysis | NDT | SAP PM | CMMS |
+| RCM | TPM | Alignment | Balancing |
+| Lubrication Management | Bearing Analysis | Shaft Alignment | Laser Alignment |
+| Ultrasound Testing | Radiographic Testing | Magnetic Particle Testing | Liquid Penetrant Testing |
+| Eddy Current Testing | Infrared Thermography | Microsoft Project | Primavera P6 |
+| AutoCAD Plant 3D | PDMS | Compress | Caesar II |
+| HYSYS | P&ID Development | Equipment Sizing | Stress Analysis |
+| Mechanical Drawing | Technical Drawing | 3D Modeling | 2D Drafting |
+| Reverse Engineering | Tribology | Fracture Mechanics | Fatigue Analysis |
+
+### ENG-ELE - Electrical Engineering (50 skills)
+
+| Power Systems Analysis | Short Circuit Analysis | Protection Coordination | High Voltage Engineering |
+| Electrical Design | Single Line Diagrams | Cable Sizing | Voltage Drop Calculation |
+| Load Flow Analysis | ETAP | SKM Power Tools | PSCAD |
+| MATLAB/Simulink | PLC Basics | Relay Settings | Arc Flash Analysis |
+| Substation Design | Transformer Sizing | Switchgear Selection | Power Factor Correction |
+| Harmonic Analysis | Grounding Systems | Lightning Protection | Cable Tray Design |
+| Conduit Sizing | Motor Control | VFD Programming | Soft Starter Configuration |
+| Generator Sizing | UPS Systems | Battery Systems | Solar PV Systems |
+| Inverter Systems | Electrical Safety | IEC Standards | IEEE Standards |
+| NEC Code | AutoCAD Electrical | EPLAN | Dialux |
+| Relux | Electrical Estimation | Bill of Materials | Electrical Testing |
+| Megger Testing | Hi-Pot Testing | Continuity Testing | Power Quality Analysis |
+| Energy Auditing | Electrical Inspection |
+
+### ENG-CIV - Civil Engineering (55 skills)
+
+| Structural Analysis | Structural Design | Reinforced Concrete Design | Steel Design |
+| Foundation Design | Retaining Wall Design | STAAD Pro | SAP2000 |
+| ETABS | SAFE | Robot Structural | AutoCAD Civil 3D |
+| Civil 3D | Revit Structure | Tekla Structures | Road Design |
+| Highway Design | Pavement Design | Drainage Design | Water Supply Design |
+| Sewer Design | Stormwater Management | Site Planning | Earthworks |
+| Grading | Surveying | Concrete Technology | Soil Mechanics |
+| Geotechnical Investigation | Borehole Logging | Foundation Investigation | Pile Design |
+| Construction Materials | Quality Control - Civil | Material Testing | Traffic Analysis |
+| Transportation Planning | Bridge Design | Hydraulic Design | Hydrology |
+| Flood Risk Assessment | Environmental Impact Assessment | Health & Safety - Construction | Contract Administration |
+| Bill of Quantities | Project Planning | Primavera P6 | Microsoft Project |
+| Project Scheduling | Concrete Mix Design | Asphalt Design | Aggregate Testing |
+| Proctor Test | CBR Test | Triaxial Test |
+
+### ENG-CHE - Chemical Engineering (53 skills)
+
+| Process Design | Process Simulation | HYSYS | Aspen Plus |
+| Pro II | P&ID Development | PFD Development | Mass Balance |
+| Energy Balance | Heat Exchanger Design | Distillation Design | Reaction Engineering |
+| Fluid Dynamics | Thermodynamics | Chemical Kinetics | Process Safety |
+| HAZOP | HAZID | SIL Assessment | LOPA |
+| Process Control | Instrumentation Sizing | Control Valve Sizing | Relief Valve Sizing |
+| Flare System Design | Vent System Design | Piping Design | Material Selection |
+| Corrosion Prevention | Wastewater Treatment | Air Pollution Control | Waste Management |
+| GMP | FDA Regulations | Process Validation | Batch Processing |
+| Continuous Processing | Unit Operations | Chemical Storage | Hazardous Materials Handling |
+| Process Optimization | Debottlenecking | Energy Integration | Pinch Analysis |
+| Compressor Design | Pump Sizing | Column Design | Reactor Design |
+| Crystallization | Filtration | Drying | Evaporation |
+| Extraction |
+
+### ENG-IND - Industrial Engineering (39 skills)
+
+| Lean Manufacturing | Six Sigma | 5S | Kaizen |
+| Value Stream Mapping | Process Mapping | Time & Motion Study | Work Measurement |
+| Facility Layout | Ergonomics | Line Balancing | Kanban |
+| Just-in-Time | Poka-Yoke | SMED | Overall Equipment Effectiveness |
+| Cycle Time Analysis | Capacity Planning | Bottleneck Analysis | Theory of Constraints |
+| Statistical Process Control | Design of Experiments | Minitab | SPSS |
+| Process Improvement | Standard Work | Takt Time | Pull Systems |
+| Gemba Walk | A3 Problem Solving | Fishbone Diagram | Pareto Analysis |
+| FMEA | Control Charts | Root Cause Analysis | 8D Problem Solving |
+| DMAIC | Continuous Improvement | Operational Excellence |
+
+### ENG-AUT - Automation & Control (49 skills)
+
+| PLC Programming | Siemens S7 | Allen-Bradley | Schneider Modicon |
+| SCADA Systems | Wonderware | WinCC | Ignition |
+| Citect SCADA | DCS Systems | DeltaV | Foxboro |
+| Honeywell Experion | HMI Design | Control Logic Design | Sequential Function Charts |
+| Instrumentation | 4-20mA Loops | HART Protocol | Foundation Fieldbus |
+| PID Tuning | Process Control | Advanced Process Control | SIS Design |
+| Safety Instrumented Systems | Safety PLC | Loop Checking | Instrument Calibration |
+| Pressure Calibration | Temperature Calibration | Flow Calibration | Level Calibration |
+| VFD Configuration | Servo Drives | Motion Control | Robotics |
+| Industrial Robotics | Cobot Programming | MES Systems | Historian |
+| OPC UA | Modbus | Profibus | Industrial Networking |
+| Ethernet/IP | Profinet | Functional Safety | IEC 61511 |
+| SIL Calculation |
+
+### ENG-ENE - Energy Engineering (27 skills)
+
+| Solar PV Design | Solar Installation | Inverter Sizing | Battery Sizing |
+| Solar Resource Assessment | PVsyst | Wind Resource Assessment | Wind Turbine Design |
+| Wind Farm Layout | Hydroelectric Design | Mini-Grid Design | Grid Connection |
+| Net Metering | Power Purchase Agreements | Renewable Energy Policy | Power Plant Operations |
+| Boiler Operations | Turbine Operations | Generator Synchronization | Load Dispatch |
+| Plant Efficiency | Preventive Maintenance - Power | Condition Monitoring - Power | Plant Safety |
+| DCS Operations | SCADA Monitoring | Shift Operations |
+
+### ENG-MIN - Mining Engineering (32 skills)
+
+| Open Pit Mining | Drill & Blast | Load & Haul | Mine Planning |
+| Pit Optimization | Mine Scheduling | Geological Mapping | Drill Core Logging |
+| Resource Estimation | Geostatistics | Block Modeling | Grade Control |
+| Exploration Techniques | Geochemical Sampling | Geophysical Survey | Crushing |
+| Grinding | Flotation | Leaching | CIL/CIP |
+| Elution | Electrowinning | Smelting | Gravity Separation |
+| Magnetic Separation | Dewatering | Tailings Management | Process Control - Mining |
+| Metallurgical Testing | Mine Safety Management | Ventilation Engineering | Rock Mechanics |
+
+### ENG-QUA - Quality Engineering (26 skills)
+
+| Quality Control | Quality Assurance | ISO 9001 | IATF 16949 |
+| Statistical Process Control | Control Charts | Capability Analysis | Inspection |
+| Testing | Calibration | Non-Conformance Management | CAPA |
+| Root Cause Analysis | 8D | 5 Whys | Audit Management |
+| Internal Audit | Supplier Quality | PPAP | FMEA |
+| APQP | MSA | Control Plan | Quality Management Systems |
+| Quality Costs | Quality Improvement |
+
+### ENG-FFE - Fire & Safety Engineering (15 skills)
+
+| Fire Protection Design | Fire Suppression Systems | Fire Alarm Systems | Fire Risk Assessment |
+| NFPA Standards | Fire Modeling | Evacuation Planning | Fire Safety Engineering |
+| Smoke Management | Fire Water Systems | Sprinkler Design | Fire Pumps |
+| Fire Safety Audit | Emergency Planning | Hazard Identification |
+
+### ENG-SUR - Surveying & Geomatics (19 skills)
+
+| Land Surveying | GPS Survey | Total Station | Leveling |
+| GIS | Remote Sensing | QGIS | ArcGIS |
+| Google Earth Pro | Cadastral Surveying | Topographic Survey | Engineering Survey |
+| Coordinate Geometry | Geodetic Surveying | Photogrammetry | Drone Survey |
+| LiDAR | Spatial Analysis | Cartography |
+
+### ITT-SFT - Software Development (84 skills)
+
+| Python | Java | JavaScript | TypeScript |
+| C# | PHP | Ruby | Go |
+| Rust | C++ | Swift | Kotlin |
+| React | Angular | Vue.js | Next.js |
+| Nuxt.js | Svelte | Node.js | Django |
+| Flask | FastAPI | Spring Boot | .NET |
+| Laravel | Express.js | Django REST Framework | ASP.NET Core |
+| REST API | GraphQL | gRPC | WebSocket |
+| SQL | NoSQL | PostgreSQL | MySQL |
+| MongoDB | Redis | Git | GitHub |
+| GitLab | Bitbucket | Docker | Kubernetes |
+| CI/CD | Jenkins | GitHub Actions | AWS |
+| Azure | GCP | Terraform | Ansible |
+| Linux | Bash | Shell Scripting | PowerShell |
+| Unit Testing | Integration Testing | TDD | BDD |
+| Agile | Scrum | Kanban | Jira |
+| Confluence | Design Patterns | SOLID Principles | Microservices |
+| Domain-Driven Design | Event-Driven Architecture | Message Queues | RabbitMQ |
+| Kafka | Redis Pub/Sub | OAuth | JWT |
+| REST Authentication | API Security | Performance Optimization | Caching |
+| Load Balancing | System Design | Technical Architecture | Code Review |
+
+### ITT-WEB - Web Development (54 skills)
+
+| HTML5 | CSS3 | JavaScript ES6+ | TypeScript |
+| React | Angular | Vue.js | Next.js |
+| Svelte | Nuxt.js | Gatsby | Remix |
+| Tailwind CSS | Bootstrap | Material UI | Ant Design |
+| Chakra UI | SASS | LESS | PostCSS |
+| CSS-in-JS | Styled Components | Redux | Zustand |
+| MobX | Vuex | Pinia | React Query |
+| Webpack | Vite | Rollup | esbuild |
+| Turbopack | Jest | Vitest | Cypress |
+| Playwright | Selenium | Lighthouse | Web Vitals |
+| Core Web Vitals | PWA | SEO | Schema.org |
+| Open Graph | Accessibility | WCAG | Responsive Design |
+| Mobile-First Design | Cross-Browser Compatibility | Figma | Storybook |
+| Chromatic | Webpack Bundle Analyzer |
+
+### ITT-MOB - Mobile Development (36 skills)
+
+| iOS Development | Android Development | React Native | Flutter |
+| Dart | Swift | SwiftUI | Objective-C |
+| Kotlin | Jetpack Compose | Xcode | Android Studio |
+| VS Code | Expo | Mobile UI/UX | Material Design |
+| Human Interface Guidelines | Push Notifications | Firebase | Deep Linking |
+| App Store Optimization | Google Play Console | Mobile Security | Code Signing |
+| Provisioning Profiles | Mobile Testing | Appium | XCTest |
+| Espresso | Mobile Analytics | Crashlytics | Performance Monitoring |
+| Offline-First | Mobile Database | SQLite | Realm |
+
+### ITT-DEV - DevOps & SRE (59 skills)
+
+| Docker | Kubernetes | Helm | Istio |
+| Service Mesh | Terraform | Pulumi | CloudFormation |
+| Ansible | Chef | Puppet | AWS |
+| Azure | GCP | DigitalOcean | Linode |
+| EC2 | S3 | Lambda | ECS |
+| EKS | RDS | CloudFront | Azure DevOps |
+| Azure AD | Azure Functions | GKE | Cloud Run |
+| BigQuery | Cloud Functions | CI/CD | Jenkins |
+| GitHub Actions | GitLab CI | CircleCI | ArgoCD |
+| Flux | Spinnaker | Prometheus | Grafana |
+| ELK Stack | Splunk | Datadog | New Relic |
+| PagerDuty | Linux Administration | Nginx | Apache |
+| HAProxy | Network Security | WAF | VPN |
+| SSL/TLS | Infrastructure as Code | GitOps | Site Reliability |
+| Incident Management | On-Call Operations | Runbooks |
+
+### ITT-DBA - Database Administration (36 skills)
+
+| MySQL | PostgreSQL | Oracle Database | SQL Server |
+| MongoDB | Redis | Elasticsearch | Cassandra |
+| DynamoDB | CockroachDB | Database Design | Normalization |
+| Indexing | Query Optimization | Stored Procedures | Triggers |
+| Views | Materialized Views | Database Replication | Sharding |
+| Partitioning | Backup & Recovery | Point-in-Time Recovery | Disaster Recovery |
+| Database Security | Encryption at Rest | Row-Level Security | Performance Tuning |
+| Explain Plan | Query Analysis | Data Modeling | ER Diagrams |
+| Schema Design | Database Migration | Flyway | Liquibase |
+
+### ITT-NET - Network Engineering (49 skills)
+
+| TCP/IP | DNS | DHCP | HTTP/HTTPS |
+| FTP | SSH | VPN | Cisco IOS |
+| Juniper Junos | MikroTik RouterOS | BGP | OSPF |
+| EIGRP | RIP | VLAN | STP |
+| LACP | SD-WAN | MPLS | QoS |
+| Network Address Translation | Firewall Configuration | Cisco ASA | Palo Alto |
+| Fortinet | Wireshark | Network Monitoring | Nagios |
+| Zabbix | PRTG | Wireless Networking | Wi-Fi 6 |
+| Access Points | Controllers | VoIP | SIP |
+| PBX | IP Telephony | Unified Communications | Network Design |
+| Network Architecture | Network Security | Load Balancing | F5 |
+| HAProxy | Nginx | Fiber Optics | Structured Cabling |
+| Rack Management |
+
+### ITT-QAT - QA & Testing (44 skills)
+
+| Manual Testing | Test Planning | Test Case Design | Test Execution |
+| Test Automation | Selenium | Cypress | Playwright |
+| Puppeteer | API Testing | Postman | REST Assured |
+| SoapUI | Performance Testing | JMeter | Gatling |
+| k6 | Locust | Mobile Testing | Appium |
+| XCTest | Espresso | Security Testing | OWASP |
+| Burp Suite | ZAP | TDD | BDD |
+| Cucumber | SpecFlow | Test Management | Jira |
+| TestRail | Zephyr | Allure | Bug Tracking |
+| Defect Management | Regression Testing | Smoke Testing | Sanity Testing |
+| Exploratory Testing | UAT | User Acceptance Testing | Accessibility Testing |
+
+### ITT-UID - UI/UX Design (18 skills)
+
+| User Research | Usability Testing | Wireframing | Prototyping |
+| Figma | Sketch | Adobe XD | InVision |
+| Miro | User Journey Mapping | Persona Development | Information Architecture |
+| Interaction Design | Visual Design | Design Systems | Accessibility |
+| WCAG | Responsive Design |
+
+### ITT-DTA - Data Engineering (34 skills)
+
+| Apache Spark | Apache Flink | Apache Kafka | Apache Airflow |
+| ETL | Data Pipelines | Data Lakes | Data Warehouses |
+| Snowflake | Databricks | BigQuery | Redshift |
+| dbt | Airflow | Prefect | Dagster |
+| Python | Scala | Java | SQL |
+| Parquet | Avro | ORC | JSON |
+| XML | Stream Processing | Change Data Capture | Data Ingestion |
+| Data Quality | Data Governance | Data Lineage | Schema Registry |
+| Metadata Management | Data Catalog |
+
+### ITT-HLP - IT Support & Helpdesk (24 skills)
+
+| Active Directory | Microsoft 365 | Google Workspace | Ticketing Systems |
+| ServiceNow | Jira Service Management | Remote Desktop | TeamViewer |
+| AnyDesk | Windows 10/11 | macOS | Linux Desktop |
+| Printer Management | Network Troubleshooting | Hardware Repair | Mobile Device Management |
+| MDM | Endpoint Security | Antivirus | Endpoint Detection |
+| Patch Management | User Provisioning | Access Management | Password Resets |
+
+### HLT-MED - General Medicine (20 skills)
+
+| Clinical Diagnosis | Patient Assessment | Medical History Taking | Physical Examination |
+| Treatment Planning | Patient Management | Clinical Decision Making | Evidence-Based Medicine |
+| Medical Records | ICD Coding | CPT Coding | Clinical Documentation |
+| Vital Signs Monitoring | Infection Control | Wound Care | IV Therapy |
+| Pharmacology | Drug Administration | Patient Counseling | Referral Management |
+
+### HLT-SUR - Surgery (14 skills)
+
+| Surgical Procedures | Pre-Operative Assessment | Post-Operative Care | Anesthesia |
+| Hemostasis | Suturing | Wound Closure | Sterile Technique |
+| Surgical Instruments | Operating Room Protocol | Patient Positioning | Laparoscopy |
+| Endoscopy | Minimally Invasive Surgery |
+
+### HLT-NUR - Nursing (16 skills)
+
+| Patient Care | Medication Administration | Nursing Assessment | Care Planning |
+| Wound Management | Infection Prevention | Patient Education | Triage |
+| IV Therapy | Catheter Care | Vital Signs | Patient Monitoring |
+| Nursing Documentation | Shift Handover | Palliative Care | Pain Management |
+
+### HLT-LAB - Medical Laboratory (15 skills)
+
+| Hematology | Microbiology | Clinical Chemistry | Blood Banking |
+| PCR | ELISA | Flow Cytometry | Histology |
+| Cytology | ISO 15189 | Laboratory Quality Control | Sample Processing |
+| Equipment Calibration | Laboratory Information System | Point-of-Care Testing |
+
+### HLT-PUB - Public Health (13 skills)
+
+| Epidemiology | Disease Surveillance | Health Promotion | Community Health |
+| Maternal & Child Health | Immunization Programs | Health Education | M&E - Health Programs |
+| Data Collection - Health | Health Policy Analysis | WHO Guidelines | Health System Strengthening |
+| Disease Prevention |
+
+### HLT-PSY - Psychiatry & Mental Health (12 skills)
+
+| Psychological Assessment | Psychotherapy | Cognitive Behavioral Therapy | Mental Health Diagnosis |
+| Crisis Intervention | Suicide Prevention | Group Therapy | Family Therapy |
+| Addiction Counseling | Trauma-Informed Care | Psychopharmacology | Mental Health Policy |
+
+### FIN-ACC - Financial Accounting (24 skills)
+
+| Financial Reporting | IFRS | GAAP | Bookkeeping |
+| General Ledger | Accounts Payable | Accounts Receivable | Bank Reconciliation |
+| Financial Statements | Balance Sheet | Income Statement | Cash Flow |
+| Month-End Close | Year-End Close | Journal Entries | Sage |
+| QuickBooks | Xero | SAP FI | Oracle Financials |
+| Excel | Google Sheets | VLOOKUP | Pivot Tables |
+
+### FIN-AUD - Auditing (19 skills)
+
+| Internal Audit | External Audit | Risk-Based Auditing | Audit Planning |
+| Audit Procedures | Sampling | Substantive Testing | Control Testing |
+| Audit Report Writing | ISA Standards | ISA 315 | ISA 540 |
+| CAAT | Data Analytics for Audit | ACL | IDEA |
+| Forensic Accounting | Fraud Detection | Compliance Audit |
+
+### FIN-TAX - Taxation (13 skills)
+
+| Tax Planning | Tax Compliance | Corporate Tax | Personal Tax |
+| VAT/GST | Withholding Tax | Transfer Pricing | Tax Treaty Application |
+| Tax Returns | Tax Advisory | Tax Authority Correspondence | Tax Audit Support |
+| Customs & Excise |
+
+### FIN-MGT - Management Accounting (14 skills)
+
+| Management Accounting | Cost Accounting | Budgeting | Forecasting |
+| Variance Analysis | Financial Modeling | Business Cases | Activity-Based Costing |
+| Marginal Costing | Break-Even Analysis | Power BI | Tableau |
+| Advanced Excel | SAP CO |
+
+### FIN-INV - Investment & Asset Management (15 skills)
+
+| Portfolio Management | Investment Analysis | Asset Allocation | Equity Research |
+| Fixed Income Analysis | Derivatives | Risk-Adjusted Returns | Sharpe Ratio |
+| Bench marking | Bloomberg Terminal | Reuters Eikon | Financial Modeling |
+| Valuation | DCF Analysis | Comparable Analysis |
+
+### HRM-REC - Talent Acquisition & Recruitment (17 skills)
+
+| Sourcing | Boolean Search | LinkedIn Recruiting | Candidate Screening |
+| Interview Techniques | Competency-Based Interviewing | Behavioral Interviewing | ATS Systems |
+| Workday | SAP SuccessFactors | BambooHR | Job Description Writing |
+| Salary Benchmarking | Offer Management | Onboarding | Recruitment Marketing |
+| Employer Branding |
+
+### HRM-CBN - Compensation & Benefits (16 skills)
+
+| Payroll Processing | Salary Structures | Job Grading | Pay Bands |
+| Benefits Administration | Pension Management | Medical Insurance | Statutory Deductions |
+| Tax Compliance - Payroll | Payroll Systems | Compensation Benchmarking | Variable Pay |
+| Incentive Design | Total Rewards | Expatriate Compensation | Cost of Living Adjustment |
+
+### HRM-TRN - Learning & Development (16 skills)
+
+| Training Needs Analysis | Training Design | Training Delivery | Blended Learning |
+| E-Learning Development | LMS Administration | Moodle | Articulate Storyline |
+| Captivate | Kirkpatrick Model | Training Evaluation | Coaching |
+| Mentoring | Competency Frameworks | Skills Matrix | Talent Assessment |
+
+### HRM-ODV - Organizational Development (12 skills)
+
+| Change Management | Organizational Design | Culture Assessment | Employee Engagement |
+| Talent Management | Succession Planning | Workforce Planning | Organizational Assessment |
+| Culture Transformation | Performance Management | 360 Feedback | OKR Framework |
+
+### HRM-HRS - HR Systems & Analytics (13 skills)
+
+| HR Analytics | People Analytics | Workforce Analytics | HRIS |
+| Workday | SAP SuccessFactors | BambooHR | Data Visualization - HR |
+| Attrition Analysis | Headcount Planning | Compensation Analytics | Diversity Analytics |
+| Reporting Dashboards |
+
+### MKT-DIG - Digital Marketing (27 skills)
+
+| SEO | SEM | Google Ads | Facebook Ads |
+| Instagram Ads | LinkedIn Ads | TikTok Ads | Google Analytics |
+| Google Tag Manager | Facebook Pixel | Conversion Tracking | A/B Testing |
+| Email Marketing | Mailchimp | HubSpot | Salesforce Marketing Cloud |
+| Content Marketing | Social Media Management | Hootsuite | Buffer |
+| Influencer Marketing | Affiliate Marketing | Growth Hacking | Marketing Automation |
+| Marketo | ActiveCampaign | Zapier |
+
+### MKT-BRD - Brand Management (15 skills)
+
+| Brand Strategy | Brand Positioning | Brand Architecture | Brand Guidelines |
+| Visual Identity | Brand Audit | Brand Tracking | Brand Equity |
+| Rebranding | Consumer Insights | Market Segmentation | Targeting |
+| Brand Communication | Brand Experience | Brand Licensing |
+
+### MKT-MRE - Market Research & Insights (16 skills)
+
+| Market Research | Quantitative Research | Qualitative Research | Survey Design |
+| Focus Groups | In-Depth Interviews | Data Analysis - Marketing | SPSS |
+| R | Python for Research | Consumer Behavior | Competitive Analysis |
+| Trend Analysis | Market Sizing | TAM/SAM/SOM | Customer Journey Mapping |
+
+### SAL-COR - Corporate & B2B Sales (23 skills)
+
+| B2B Sales | Consultative Selling | Solution Selling | Value Selling |
+| Sales Pipeline Management | CRM | Salesforce | HubSpot CRM |
+| Lead Generation | Lead Qualification | Opportunity Management | Sales Forecasting |
+| Sales Planning | Account Planning | Negotiation | Closing Techniques |
+| Objection Handling | Cold Calling | Email Prospecting | Social Selling |
+| Sales Presentations | Proposal Writing | Contract Negotiation |
+
+### SAL-KEY - Key Account Management (14 skills)
+
+| Key Account Management | Strategic Account Planning | Relationship Building | Client Retention |
+| Account Growth | Executive Engagement | Business Reviews | QBRs |
+| Contract Renewal | Upselling | Cross-Selling | Customer Success |
+| Net Promoter Score | Churn Prevention |
+
+### OSC-PRO - Procurement & Purchasing (14 skills)
+
+| Strategic Sourcing | Vendor Management | Supplier Evaluation | Contract Negotiation |
+| Purchase Orders | Procurement Systems | SAP MM | Oracle Procurement |
+| Spend Analysis | RFQ/RFP Process | Supplier Relationship Management | Total Cost of Ownership |
+| Category Management | E-Procurement |
+
+### OSC-LOG - Logistics & Distribution (15 skills)
+
+| Freight Forwarding | Customs Clearance | Import/Export | Incoterms |
+| Bill of Lading | Letters of Credit | Warehouse Management | Inventory Control |
+| Fleet Management | Route Optimization | Last Mile Delivery | Cross-Docking |
+| 3PL Management | Supply Chain Visibility | Track & Trace |
+
+### OSC-SCM - Supply Chain Management (15 skills)
+
+| Supply Chain Planning | Demand Forecasting | S&OP | MRP/ERP |
+| SAP SCM | Oracle SCM | Kinaxis | Lean Supply Chain |
+| Agile Supply Chain | Supply Chain Analytics | Network Design | Supplier Collaboration |
+| Risk Management | Sustainable Supply Chain | Circular Economy |
+
+### AGR-CRP - Crop Production (16 skills)
+
+| Crop Management | Soil Science | Plant Nutrition | Irrigation |
+| Pest Management | Integrated Pest Management | Crop Rotation | Conservation Agriculture |
+| Agroforestry | Seed Technology | Post-Harvest Handling | Value Addition |
+| Organic Farming | Greenhouse Management | Hydroponics | Precision Agriculture |
+
+### AGR-LIV - Livestock & Animal Husbandry (12 skills)
+
+| Animal Husbandry | Animal Nutrition | Animal Breeding | Herd Health Management |
+| Dairy Farming | Poultry Farming | Artificial Insemination | Vaccination Programs |
+| Parasite Control | Feed Formulation | Pasture Management | Livestock Economics |
+
+### MIN-GEO - Geology & Exploration (13 skills)
+
+| Geological Mapping | Drill Core Logging | Resource Estimation | Geostatistics |
+| Block Modeling | Grade Control | Exploration Techniques | Geochemical Sampling |
+| Geophysical Survey | Resource Modeling | Reserve Calculation | JORC Code |
+| NI 43-101 |
+
+### CON-BLD - Building Construction (19 skills)
+
+| Building Construction | Concrete Works | Steel Structures | Blockwork |
+| Plastering | Tiling | Painting | Roofing |
+| Ceiling Installation | Flooring | Scaffolding | Formwork |
+| Reinforcement | Site Supervision | Quality Inspection | Safety Management |
+| Building Codes | BS/EN Standards | Material Testing |
+
+### CON-ARC - Architecture & Design (16 skills)
+
+| Architectural Design | Building Planning | Space Planning | Revit |
+| AutoCAD Architecture | SketchUp | 3ds Max | BIM |
+| Building Information Modeling | Green Building Design | Sustainable Architecture | Building Regulations |
+| Zoning | Presentation | Client Briefing | Design Development |
+
+### CON-QSM - Quantity Surveying (11 skills)
+
+| Quantity Surveying | Cost Estimation | Bill of Quantities | Cost Planning |
+| Value Engineering | Cost Control | Variation Orders | Interim Valuations |
+| Final Accounts | Procurement Advice | Contract Administration |
+
+### CON-HSE - Health, Safety & Environment (12 skills)
+
+| Construction Safety | Risk Assessment | Safety Management Systems | Incident Investigation |
+| Safety Audits | Safety Training | First Aid | Working at Heights |
+| Confined Space Entry | Excavation Safety | Scaffolding Safety | PPE Management |
+
+### BFS-RET - Retail Banking (14 skills)
+
+| Retail Banking | Account Opening | Cash Handling | Customer Service |
+| Loan Processing | Credit Assessment | KYC | AML |
+| Mobile Banking | Internet Banking | Card Management | Branch Operations |
+| Compliance | Regulatory Reporting |
+
+### BFS-COR - Corporate & Investment Banking (12 skills)
+
+| Corporate Banking | Trade Finance | Letters of Credit | Syndicated Lending |
+| Project Finance | Working Capital Finance | Foreign Exchange | Treasury Products |
+| Cash Management | Relationship Management | Risk Assessment | Financial Analysis |
+
+### BFS-MIC - Microfinance (12 skills)
+
+| Microfinance | Group Lending | Micro-Insurance | Financial Inclusion |
+| Agent Banking | Mobile Money | Credit Scoring | Portfolio Quality |
+| PAR > 30 | Social Performance | Client Protection | Digital Financial Services |
+
+### INS-UND - Underwriting (9 skills)
+
+| Underwriting | Risk Assessment | Policy Pricing | Claims Assessment |
+| Reinsurance | Portfolio Management | Actuarial Analysis | Premium Calculation |
+| Loss Ratio Analysis |
+
+### LEG-COR - Corporate & Commercial Law (15 skills)
+
+| Corporate Law | Company Formation | Corporate Governance | Contract Drafting |
+| Contract Review | Due Diligence | M&A Transactions | Joint Ventures |
+| Shareholders Agreements | Board Administration | Company Secretarial | Regulatory Filings |
+| Legal Research | Legal Writing | Legal Opinion Drafting |
+
+### LEG-LIT - Litigation & Dispute Resolution (13 skills)
+
+| Litigation | Court Procedures | Case Management | Legal Research |
+| Brief Writing | Oral Advocacy | Arbitration | Mediation |
+| Negotiation | Settlement | Discovery | Evidence |
+| Trial Preparation |
+
+### LEG-CMP - Compliance & Regulatory (12 skills)
+
+| Regulatory Compliance | Anti-Money Laundering | KYC | Data Protection |
+| GDPR | POPIA | Corporate Governance | Ethics & Compliance |
+| Risk Management | Compliance Monitoring | Compliance Reporting | Policy Development |
+
+### EDU-SEC - Secondary Education (13 skills)
+
+| Lesson Planning | Curriculum Delivery | Classroom Management | Student Assessment |
+| Differentiated Instruction | Pedagogy | Formative Assessment | Summative Assessment |
+| Exam Preparation | Subject Matter Expertise | Educational Psychology | Technology-Enhanced Learning |
+| Student Engagement |
+
+### EDU-TER - Tertiary Education (12 skills)
+
+| Lecturing | Academic Research | Research Methodology | Publishing |
+| Peer Review | Grant Writing | Supervision | Thesis Examination |
+| Academic Publishing | Conference Presentation | Literature Review | Data Analysis |
+
+### EDU-ONL - E-Learning & EdTech (12 skills)
+
+| E-Learning Development | LMS Administration | Moodle | Instructional Design |
+| Curriculum Development | Blended Learning | Online Assessment | Virtual Classrooms |
+| Webinar Facilitation | Educational Technology | Digital Content Creation | Mobile Learning |
+
+### DSA-ANA - Data Analysis (31 skills)
+
+| Python | R | SQL | Statistics |
+| Machine Learning | Deep Learning | NLP | Computer Vision |
+| Reinforcement Learning | TensorFlow | PyTorch | Scikit-learn |
+| XGBoost | LightGBM | Pandas | NumPy |
+| Matplotlib | Seaborn | Plotly | Jupyter Notebook |
+| Feature Engineering | Model Evaluation | A/B Testing | Hypothesis Testing |
+| Regression Analysis | Time Series Analysis | Clustering | Classification |
+| Neural Networks | Transfer Learning | Model Deployment |
+
+### DSA-BIZ - Business Intelligence (21 skills)
+
+| Power BI | Tableau | Looker | Qlik Sense |
+| Domo | SQL | Excel | Google Data Studio |
+| Metabase | Dashboard Design | KPI Development | Data Modeling |
+| ETL | Data Warehousing | Star Schema | Snowflake Schema |
+| Business Requirements | Report Writing | Data Visualization | Storytelling with Data |
+| Ad-Hoc Analysis |
+
+### DSA-VIZ - Data Visualization (14 skills)
+
+| Data Visualization | Dashboard Design | Infographic Design | Power BI |
+| Tableau | Looker | D3.js | Plotly |
+| Chart Design | Color Theory - Data Viz | Visual Storytelling | Interactive Visualization |
+| Geospatial Visualization | Real-Time Dashboards |
+
+### CYS-SOC - Security Operations Center (18 skills)
+
+| SIEM | Splunk | QRadar | Sentinel |
+| LogRhythm | Incident Response | Threat Hunting | Malware Analysis |
+| Network Monitoring | Alert Triage | Incident Triage | Playbooks |
+| SOAR | Threat Intelligence | MITRE ATT&CK | IOC Analysis |
+| PCAP Analysis | Memory Forensics |
+
+### CYS-PEN - Penetration Testing (15 skills)
+
+| Penetration Testing | Vulnerability Assessment | Burp Suite | Nmap |
+| Metasploit | Nessus | OpenVAS | Web Application Testing |
+| API Testing | Network Penetration | Social Engineering | Physical Security Testing |
+| OWASP Top 10 | Report Writing | Remediation Advice |
+
+### CYS-GOV - Security Governance (17 skills)
+
+| ISO 27001 | NIST Framework | SOC 2 | PCI DSS |
+| Risk Assessment | Risk Management | Security Policy | Security Awareness |
+| Compliance | GDPR | POPIA | Business Continuity |
+| Disaster Recovery | Security Architecture | Zero Trust | Security Strategy |
+| Security Budgeting |
+
+### CYS-FRS - Forensics & Incident Response (12 skills)
+
+| Digital Forensics | Incident Investigation | Evidence Collection | Chain of Custody |
+| Forensic Imaging | Disk Forensics | Memory Forensics | Network Forensics |
+| Malware Forensics | Forensic Reporting | Expert Witness Testimony | Forensic Tools |
+
+### AIM-NLP - Natural Language Processing (17 skills)
+
+| Natural Language Processing | Text Classification | Sentiment Analysis | Named Entity Recognition |
+| Machine Translation | Question Answering | Transformers | BERT |
+| GPT | LLM Fine-Tuning | Tokenization | Word Embeddings |
+| Attention Mechanisms | Prompt Engineering | RAG | LangChain |
+| Hugging Face |
+
+### AIM-CVI - Computer Vision (16 skills)
+
+| Computer Vision | Image Classification | Object Detection | Image Segmentation |
+| Facial Recognition | OCR | CNN | ResNet |
+| YOLO | OpenCV | Image Preprocessing | Data Augmentation |
+| Transfer Learning - Vision | Video Analysis | Medical Imaging AI | Satellite Image Analysis |
+
+### AIM-MLO - ML Operations & Platform (15 skills)
+
+| MLOps | ML Pipeline | Model Training | Model Deployment |
+| Model Monitoring | MLflow | Kubeflow | Vertex AI |
+| SageMaker | Azure ML | Feature Store | Model Registry |
+| A/B Testing - ML | Model Versioning | Experiment Tracking |
+
+### MEC-JRN - Journalism & News (12 skills)
+
+| News Writing | Investigative Journalism | Feature Writing | Interviewing |
+| Fact-Checking | Editorial Judgment | AP Style | SEO for News |
+| Social Media Journalism | Data Journalism | Multimedia Storytelling | Media Ethics |
+
+### MEC-BRD - Broadcasting & Production (13 skills)
+
+| Video Production | Audio Production | Video Editing | Premiere Pro |
+| Final Cut Pro | DaVinci Resolve | After Effects | Camera Operation |
+| Lighting | Sound Design | Live Broadcasting | Studio Production |
+| Field Production |
+
+### CAD-GRD - Graphic Design (16 skills)
+
+| Adobe Photoshop | Adobe Illustrator | Adobe InDesign | Figma |
+| Sketch | Canva | CorelDRAW | Typography |
+| Color Theory | Layout Design | Print Design | Brand Identity |
+| Logo Design | Packaging Design | Poster Design | Illustration |
+
+### CAD-UXD - UX/UI Design (18 skills)
+
+| User Research | Usability Testing | Wireframing | Prototyping |
+| Figma | Sketch | Adobe XD | InVision |
+| Miro | User Journey Mapping | Persona Development | Information Architecture |
+| Interaction Design | Visual Design | Design Systems | Accessibility |
+| WCAG | Responsive Design |
+
+### OIL-UPS - Upstream Operations (15 skills)
+
+| Drilling Engineering | Well Completion | Well Intervention | Production Optimization |
+| Reservoir Engineering | Petroleum Geology | Seismic Interpretation | Well Logging |
+| Mud Engineering | Directional Drilling | Horizontal Drilling | Hydraulic Fracturing |
+| Artificial Lift | Enhanced Oil Recovery | Production Logging |
+
+### OIL-MID - Midstream Operations (12 skills)
+
+| Pipeline Engineering | Pipeline Integrity | Pigging | LNG Processing |
+| Gas Compression | Gas Treatment | Pipeline Design | Pipeline Construction |
+| Pipeline Operations | Storage Tank Design | Terminal Operations | Metering Systems |
+
+### OIL-HSE - Oil & Gas Safety (14 skills)
+
+| Process Safety Management | HAZOP | SIL Assessment | Emergency Response Planning |
+| Fire & Explosion Prevention | HSE Management Systems | Permit to Work | Job Safety Analysis |
+| Incident Investigation | Safety Audits | Environmental Monitoring | PPE Management |
+| Safety Culture | Risk Assessment |
+
+### NPO-PRG - Program Management (12 skills)
+
+| Program Design | Logical Framework | Theory of Change | Proposal Writing |
+| Donor Reporting | Budget Management - NGO | Stakeholder Engagement | Community Mobilization |
+| Participatory Approaches | Gender Mainstreaming | Human Rights-Based Approaches | Results-Based Management |
+
+### NPO-MNE - Monitoring & Evaluation (12 skills)
+
+| Monitoring & Evaluation | Logic Models | Indicator Development | Data Collection Methods |
+| Survey Design | Qualitative Assessment | Impact Evaluation | Contribution Analysis |
+| Most Significant Change | Data Management - M&E | M&E Frameworks | Reporting - Donors |
+
+### NPO-FND - Fundraising & Grants (12 skills)
+
+| Grant Writing | Fundraising Strategy | Donor Relations | Resource Mobilization |
+| Proposal Development | Budget Justification | Compliance - Donor | Grant Management |
+| Restricted Funds | Major Donor Cultivation | Crowdfunding | Corporate Partnerships |
+
+### QAC-QMS - Quality Management Systems (12 skills)
+
+| ISO 9001 | Quality Management Systems | Audit Management | Document Control |
+| Corrective Action | Preventive Action | Internal Auditing | Management Review |
+| Continuous Improvement | Process Approach | Risk-Based Thinking | Quality Policy |
+
+### QAC-HSE - HSE Management (12 skills)
+
+| HSE Management Systems | ISO 45001 | ISO 14001 | Risk Assessment |
+| Hazard Identification | Safety Training | Incident Investigation | Safety Audit |
+| Environmental Compliance | Waste Management | Emission Control | Environmental Monitoring |
+
+### TOH-HOT - Hotel & Lodge Management (12 skills)
+
+| Hotel Operations | Front Office Management | Housekeeping Management | Revenue Management |
+| Yield Management | OTA Management | Guest Relations | Concierge Services |
+| Reservation Systems | Opera PMS | Hotel Budgeting | Hotel Marketing |
+
+### TOH-CUL - Culinary & Kitchen (10 skills)
+
+| Food Preparation | Menu Planning | Kitchen Management | Food Safety |
+| HACCP | Food Costing | Recipe Development | Allergen Management |
+| Kitchen Hygiene | Inventory - Kitchen |
+
+### TEL-NET - Network Infrastructure (16 skills)
+
+| Telecom Network Design | RF Engineering | Network Optimization | 2G/3G/4G/5G Networks |
+| RAN Planning | Core Network | Transmission Planning | Fiber Optic Design |
+| Microwave Links | Network Performance | Capacity Planning | Network Rollout |
+| Ericsson | Huawei | ZTE | Nokia |
+
+### ECM-PLT - Platform Management (13 skills)
+
+| E-Commerce Operations | Marketplace Management | Seller Management | Product Listing |
+| Order Management | Customer Service - E-Commerce | Inventory - E-Commerce | Returns Management |
+| Marketplace Analytics | Jumia | Kilimall | Takealot |
+| Amazon Marketplace |
+
+### ECM-PAY - Digital Payments (11 skills)
+
+| Mobile Money | M-Pesa Integration | Payment Gateway | Digital Wallets |
+| USSD | API Integration - Payments | PCI DSS Compliance | Fraud Prevention - Payments |
+| Reconciliation | Settlement | Cross-Border Payments |
+
+### ENV-ESG - ESG & Sustainability (13 skills)
+
+| ESG Reporting | Sustainability Reporting | GRI Standards | SASB |
+| TCFD | Carbon Footprint | GHG Accounting | Scope 1/2/3 Emissions |
+| Climate Risk Assessment | Social Impact Measurement | Sustainability Strategy | Circular Economy |
+| Net Zero Planning |
+
+### PFM-MNT - Building Maintenance (11 skills)
+
+| Building Maintenance | Preventive Maintenance - Facilities | HVAC Systems | Electrical Systems - Building |
+| Plumbing Systems | Fire Safety Systems | Elevator Maintenance | Generator Maintenance |
+| Building Automation | BMS | Energy Management - Building |
+
+### PRJ-PMO - PMO & Portfolio Management (16 skills)
+
+| Project Planning | Scope Management | Schedule Management | Cost Management |
+| Risk Management | Quality Management | Stakeholder Management | Communication Management |
+| Resource Management | Procurement Management | Earned Value Management | Critical Path Method |
+| Agile | Scrum | Kanban | SAFe |
+
+### Soft Skills (cross-cutting) (42 skills)
+
+| Communication | Teamwork | Leadership | Problem Solving |
+| Critical Thinking | Time Management | Decision Making | Adaptability |
+| Conflict Resolution | Negotiation | Presentation Skills | Stakeholder Management |
+| Emotional Intelligence | Creativity | Innovation | Analytical Thinking |
+| Attention to Detail | Planning & Organization | Delegation | Mentoring |
+| Coaching | Accountability | Resilience | Stress Management |
+| Self-Motivation | Customer Service | Active Listening | Feedback |
+| Persuasion | Cross-Cultural Communication | Diversity & Inclusion | Ethics |
+| Work Ethic | Initiative | Collaboration | Networking |
+| Report Writing | Business Writing | Email Etiquette | Project Coordination |
+| Multi-Tasking | Prioritization |
