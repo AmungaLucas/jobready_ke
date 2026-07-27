@@ -1,8 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -10,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/layout/empty-state';
 import {
   Loader2, MapPin, Briefcase, Calendar, TrendingUp,
-  Sparkles, Lock,
+  Sparkles, Route, Clock,
 } from 'lucide-react';
 import {
   MatchRow, FUNCTION_LABELS, SECTOR_LABELS, JOB_TYPE_LABELS,
@@ -20,6 +19,109 @@ import {
 interface MatchesListProps {
   onOpenJob: (jobId: string) => void;
 }
+
+interface ClusterInfo {
+  id: string;
+  function: string;
+  jobTitles: string[];
+  skills: string[];
+  yearsExperience: number;
+  isSelected: boolean;
+}
+
+// ─── Trajectory cards shown above the matches list ────────────────────────
+
+function TrajectoryBar() {
+  const { data: profileData } = useQuery<{
+    clusters: ClusterInfo[];
+    selectedTrajectoryCount: number;
+  }>({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const res = await fetch('/api/cv/profile');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    // Don't refetch on window focus to avoid flicker
+    staleTime: 60_000,
+  });
+
+  const clusters = profileData?.clusters ?? [];
+
+  // Don't show the bar if no CV has been uploaded
+  if (clusters.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Route className="h-4 w-4 text-primary" />
+        <p className="text-sm font-medium">Your Career Trajectories</p>
+        <Badge variant="secondary" className="text-[10px]">
+          {clusters.filter((c) => c.isSelected).length} active
+        </Badge>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {clusters.map((cluster) => (
+          <Card
+            key={cluster.id}
+            className={`flex-1 min-w-[200px] max-w-[300px] ${
+              cluster.isSelected
+                ? 'border-primary/40 bg-primary/5'
+                : 'border-border/50 opacity-70'
+            }`}
+          >
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge
+                  variant={cluster.isSelected ? 'default' : 'secondary'}
+                  className="text-[10px] capitalize"
+                >
+                  {FUNCTION_LABELS[cluster.function as keyof typeof FUNCTION_LABELS]
+                    ?? cluster.function.replace(/_/g, ' ')}
+                </Badge>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {cluster.yearsExperience} yrs
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {cluster.jobTitles.slice(0, 4).map((title) => (
+                  <Badge key={title} variant="outline" className="text-[10px] font-normal">
+                    {title}
+                  </Badge>
+                ))}
+                {cluster.jobTitles.length > 4 && (
+                  <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                    +{cluster.jobTitles.length - 4} more
+                  </Badge>
+                )}
+              </div>
+              {cluster.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {cluster.skills.slice(0, 5).map((skill) => (
+                    <span
+                      key={skill}
+                      className="text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {cluster.skills.length > 5 && (
+                    <span className="text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5">
+                      +{cluster.skills.length - 5}
+                    </span>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main matches list ────────────────────────────────────────────────────
 
 export function MatchesList({ onOpenJob }: MatchesListProps) {
   const { data, isLoading, error } = useQuery<{ matches: MatchRow[]; count: number }>({
@@ -31,9 +133,13 @@ export function MatchesList({ onOpenJob }: MatchesListProps) {
     },
   });
 
+  // Always show trajectories bar (it has its own loading state)
+  const showTrajectories = !isLoading;
+
   if (isLoading) {
     return (
       <div className="space-y-3">
+        <TrajectoryBar />
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-32 w-full rounded-xl" />
         ))}
@@ -43,46 +149,51 @@ export function MatchesList({ onOpenJob }: MatchesListProps) {
 
   if (error) {
     return (
-      <EmptyState
-        title="Couldn't load matches"
-        description="Please refresh the page or try again later."
-        icon={<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-      />
+      <div className="space-y-3">
+        <TrajectoryBar />
+        <EmptyState
+          title="Couldn't load matches"
+          description="Please refresh the page or try again later."
+          icon={<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+        />
+      </div>
     );
   }
 
   const matches = data?.matches ?? [];
 
-  if (matches.length === 0) {
-    return (
-      <EmptyState
-        title="No matches yet"
-        description="We're looking for jobs that match your profile. Upload your CV and select up to 3 career trajectories so we can find jobs that fit your story."
-        icon={<Sparkles className="h-10 w-10 text-muted-foreground" />}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{matches.length}</span>{' '}
-          {matches.length === 1 ? 'job' : 'jobs'} matched to your profile
-        </p>
-        <Badge variant="secondary" className="gap-1">
-          <TrendingUp className="h-3 w-3" />
-          Ranked by relevance
-        </Badge>
-      </div>
-      {matches.map((match, idx) => (
-        <MatchCard
-          key={match.id}
-          match={match}
-          rank={idx + 1}
-          onOpen={() => onOpenJob(match.jobId)}
+    <div className="space-y-4">
+      {showTrajectories && <TrajectoryBar />}
+
+      {matches.length === 0 ? (
+        <EmptyState
+          title="No matches yet"
+          description="We're looking for jobs that match your profile. Upload your CV and select up to 3 career trajectories so we can find jobs that fit your story."
+          icon={<Sparkles className="h-10 w-10 text-muted-foreground" />}
         />
-      ))}
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{matches.length}</span>{' '}
+              {matches.length === 1 ? 'job' : 'jobs'} matched to your profile
+            </p>
+            <Badge variant="secondary" className="gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Ranked by relevance
+            </Badge>
+          </div>
+          {matches.map((match, idx) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              rank={idx + 1}
+              onOpen={() => onOpenJob(match.jobId)}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

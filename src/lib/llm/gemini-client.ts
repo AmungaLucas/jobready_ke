@@ -131,8 +131,8 @@ const FUNCTION_PATTERNS: Record<string, { general: string[]; titles: string[] }>
     titles: ['accountant', 'accounting officer', 'accounts assistant', 'finance officer', 'finance manager', 'auditor', 'audit manager', 'bookkeeper', 'cpa', 'tax specialist', 'tax manager', 'financial analyst'],
   },
   marketing: {
-    general: ['advertising', 'social media', 'content writing', 'seo', 'public relations', 'brand management'],
-    titles: ['marketing officer', 'marketing manager', 'marketing executive', 'digital marketer', 'brand manager', 'communications officer'],
+    general: ['advertising', 'social media', 'content writing', 'seo', 'public relations', 'brand management', 'broadcast', 'news anchor', 'news presentation', 'programme producer', 'radio presenter', 'journalism', 'media production', 'television', 'video editing', 'live broadcast'],
+    titles: ['marketing officer', 'marketing manager', 'marketing executive', 'digital marketer', 'brand manager', 'communications officer', 'news anchor', 'news presenter', 'presenter', 'radio presenter', 'programme producer', 'program producer', 'broadcast journalist', 'journalist', 'reporter', 'news editor', 'video editor', 'media manager', 'media professional', 'social media manager', 'content creator', 'technical operator', 'production assistant', 'camera operator'],
   },
   sales: {
     general: ['b2b', 'b2c', 'territory', 'sales target', 'quota'],
@@ -461,6 +461,11 @@ function stubExtractCv(userPrompt: string): string {
     // Marketing & Sales
     'marketing', 'social media', 'content writing', 'seo', 'advertising',
     'sales', 'negotiation', 'crm', 'b2b', 'b2c',
+    // Media & Broadcasting
+    'broadcast journalism', 'news presentation', 'radio', 'television',
+    'video editing', 'adobe premier pro', 'premier pro', 'capcut',
+    'live broadcast', 'news anchor', 'programme production',
+    'office administration',
     // HR
     'recruitment', 'payroll', 'performance management', 'training',
     // Design

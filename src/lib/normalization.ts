@@ -90,6 +90,11 @@ export const JOB_FUNCTION_VARIANTS: Record<JobFunction, string[]> = {
   marketing: [
     'marketing', 'brand', 'advertising', 'digital marketing', 'content',
     'seo', 'social media', 'communications', 'pr', 'public relations',
+    'broadcast', 'journalism', 'journalist', 'news anchor', 'news presenter',
+    'radio presenter', 'programme producer', 'program producer', 'reporter',
+    'media production', 'television', 'tv production', 'video editor',
+    'media manager', 'media professional', 'content creator',
+    'technical operator', 'camera operator', 'production assistant',
   ],
   sales: [
     'sales', 'business development', 'b2b', 'b2c', 'account management',

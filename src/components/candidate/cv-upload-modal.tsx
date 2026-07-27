@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 interface CvUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onViewMatches?: () => void;
 }
 
 interface ExtractionSummary {
@@ -40,7 +41,7 @@ interface ExtractionSummary {
   parseInfo?: string;
 }
 
-export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
+export function CvUploadModal({ open, onOpenChange, onViewMatches }: CvUploadModalProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
   const [pasteText, setPasteText] = useState('');
@@ -344,7 +345,11 @@ export function CvUploadModal({ open, onOpenChange }: CvUploadModalProps) {
               <Button variant="ghost" onClick={() => reset()}>
                 Upload Another
               </Button>
-              <Button onClick={() => handleClose(false)}>
+              <Button onClick={() => {
+                reset();
+                onOpenChange(false);
+                onViewMatches?.();
+              }}>
                 View My Matches
               </Button>
             </>

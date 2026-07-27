@@ -101,7 +101,7 @@ export interface ProfileResponse {
 export const FUNCTION_LABELS: Record<JobFunction, string> = {
   engineering: 'Engineering',
   finance: 'Finance & Accounting',
-  marketing: 'Marketing',
+  marketing: 'Marketing & Media',
   sales: 'Sales',
   operations: 'Operations',
   human_resources: 'Human Resources',

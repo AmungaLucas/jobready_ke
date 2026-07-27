@@ -243,7 +243,11 @@ export default function Home() {
         </footer>
 
         {/* Modals */}
-        <CvUploadModal open={cvUploadOpen} onOpenChange={setCvUploadOpen} />
+        <CvUploadModal
+          open={cvUploadOpen}
+          onOpenChange={setCvUploadOpen}
+          onViewMatches={() => { setCandidateView('matches'); setSelectedJobId(null); }}
+        />
       </div>
     );
   }
