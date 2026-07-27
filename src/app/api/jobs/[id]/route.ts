@@ -47,7 +47,8 @@ export async function GET(
             titleScore: match.titleScore,
             skillsScore: match.skillsScore,
             educationScore: match.educationScore,
-            fieldScore: match.fieldScore,
+            specializationScore: match.specializationScore,
+            familyScore: match.familyScore,
             experienceScore: match.experienceScore,
             explanations: JSON.parse(match.explanations),
           };

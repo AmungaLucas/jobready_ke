@@ -25,6 +25,7 @@ import {
   JobFunction,
   EducationLevel,
 } from '@/lib/normalization';
+import { resolveSpecialization, isValidSpecialization } from '@/lib/taxonomy';
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ function normalizeCvExtraction(raw: CVExtractionResult): CVExtractionResult {
       yearsExperience: Math.max(0, Math.min(50, Number(exp.yearsExperience) || 0)),
       description: exp.description ? String(exp.description).trim() : undefined,
       function: normalizeFunctionOrFallback(exp.function, exp.jobTitle),
+      specialization: normalizeSpecialization(exp.specialization, exp.function),
       skills: normalizeSkills(exp.skills ?? []),
     }))
     .filter((exp) => exp.jobTitle || exp.skills.length > 0);
@@ -117,10 +119,17 @@ function normalizeFunctionOrFallback(rawFn: string, fallbackTitle: string): stri
   // Try the title as a fallback
   const fromTitle = normalizeJobFunction(fallbackTitle);
   if (fromTitle) return fromTitle;
-  // Return the raw value lowercased as a last resort — do NOT silently
-  // map everything to 'operations' as that corrupts the extraction data.
-  // The cluster builder will handle unknown functions by skipping them.
-  return rawFn.toLowerCase().replace(/\s+/g, '_') || 'operations';
+  // Return the raw value lowercased — let cluster builder handle unknown functions
+  return rawFn.toLowerCase().replace(/\s+/g, '_') || 'adm';
+}
+
+function normalizeSpecialization(rawSpec: string | undefined, rawFn: string): string | undefined {
+  if (!rawSpec) return undefined;
+  const normalizedFn = normalizeJobFunction(rawFn);
+  if (!normalizedFn) return undefined;
+
+  const resolved = resolveSpecialization(rawSpec, normalizedFn);
+  return resolved ?? undefined;
 }
 
 function normalizeEducationOrFallback(rawLevel: string): string {
@@ -130,10 +139,6 @@ function normalizeEducationOrFallback(rawLevel: string): string {
 }
 
 // ─── Cluster builder ────────────────────────────────────────────────────────
-//
-// The LLM suggests clusters, but we enforce the up-to-3 limit and sort by
-// yearsExperience descending. We also merge skills from all experiences that
-// belong to each cluster's function.
 
 function buildClusters(
   suggested: RawCluster[] | undefined,
@@ -146,14 +151,19 @@ function buildClusters(
   for (const s of suggested ?? []) {
     const fn = normalizeFunctionOrFallback(s.function, '');
     if (!fn) continue;
-    const existing = clusterMap.get(fn);
+
+    const spec = normalizeSpecialization(s.specialization, fn);
+    const key = spec ? `${fn}:${spec}` : fn;
+    const existing = clusterMap.get(key);
+
     if (existing) {
       existing.jobTitles = Array.from(new Set([...existing.jobTitles, ...s.jobTitles]));
       existing.skills = Array.from(new Set([...existing.skills, ...normalizeSkills(s.skills ?? [])]));
       existing.yearsExperience = Math.max(existing.yearsExperience, s.yearsExperience || 0);
     } else {
-      clusterMap.set(fn, {
+      clusterMap.set(key, {
         function: fn,
+        specialization: spec,
         jobTitles: Array.from(new Set(s.jobTitles ?? [])),
         skills: normalizeSkills(s.skills ?? []),
         yearsExperience: Math.max(0, Math.min(50, Number(s.yearsExperience) || 0)),
@@ -161,11 +171,14 @@ function buildClusters(
     }
   }
 
-  // Merge in skills/years from actual work experiences (in case LLM missed)
+  // Merge in skills/years from actual work experiences
   for (const exp of workExperiences) {
     const fn = exp.function as JobFunction;
-    const cluster = clusterMap.get(fn) ?? {
+    const spec = exp.specialization;
+    const key = spec ? `${fn}:${spec}` : fn;
+    const cluster = clusterMap.get(key) ?? {
       function: fn,
+      specialization: spec,
       jobTitles: [],
       skills: [],
       yearsExperience: 0,
@@ -173,7 +186,7 @@ function buildClusters(
     if (exp.jobTitle) cluster.jobTitles.push(exp.jobTitle);
     cluster.skills = Array.from(new Set([...cluster.skills, ...exp.skills]));
     cluster.yearsExperience = Math.max(cluster.yearsExperience, exp.yearsExperience);
-    clusterMap.set(fn, cluster);
+    clusterMap.set(key, cluster);
   }
 
   // Sort by yearsExperience desc, take top 3
@@ -186,6 +199,6 @@ function buildClusters(
   return clusters.map((c) => ({
     ...c,
     jobTitles: Array.from(new Set(c.jobTitles)).slice(0, 8),
-    skills: Array.from(new Set(c.skills)).slice(0, 20),
+    skills: Array.from(new Set(c.skills)).slice(0, 25),
   }));
 }

@@ -1,6 +1,6 @@
 // ============================================================================
 // lib/normalization.ts
-// Word-boundary normalization for enums (Section 4.6 of v4.0 doc)
+// Word-boundary normalization for enums.
 // Uses \b regex matching to prevent false positives (e.g., "hr" not matching "research")
 // ============================================================================
 
@@ -13,30 +13,30 @@ export type EducationLevel =
   | 'phd';
 
 export type JobFunction =
-  // Core professional functions (original 12)
-  | 'engineering'
-  | 'finance'
-  | 'marketing'
-  | 'sales'
-  | 'operations'
-  | 'human_resources'
-  | 'technology'
-  | 'design'
-  | 'customer_service'
-  | 'healthcare'
-  | 'education'
-  | 'legal'
-  // Kenya-market expansions
-  | 'agriculture'
-  | 'construction'
-  | 'hospitality'
-  | 'transport'
-  | 'security'
-  | 'community_social'
-  | 'manufacturing'
-  | 'government'
-  | 'consulting'
-  | 'environment';
+  // Engineering & Technical
+  | 'eng' | 'itt' | 'cys'
+  // Science & Health
+  | 'hlt' | 'pha'
+  // Business & Finance
+  | 'fin' | 'bfs' | 'ins'
+  // Building & Infrastructure
+  | 'con' | 'min' | 'enu' | 'mfg'
+  // Government & Social
+  | 'gpa' | 'swc' | 'npo'
+  // Creative & Media
+  | 'mkt' | 'cad' | 'mec'
+  // Sales & Operations
+  | 'sal' | 'osc'
+  // People & Education
+  | 'hrm' | 'edu'
+  // Professional Services
+  | 'leg' | 'cnt' | 'dsa'
+  // Trade & Transport
+  | 'toh' | 'trl' | 'tel' | 'aut' | 'ava'
+  // Sector-Specific
+  | 'agr' | 'ree' | 'rcg' | 'ecm' | 'env'
+  // Support Functions
+  | 'sed' | 'pfm' | 'spr' | 'vah' | 'wms' | 'adm';
 
 export type Sector =
   | 'technology'
@@ -72,7 +72,6 @@ export const EDUCATION_ORDER: EducationLevel[] = [
 
 // ============================================================================
 // Variant maps: each canonical value -> array of common synonyms/variations
-// Variants are matched case-insensitively using word boundaries (\b)
 // ============================================================================
 
 export const EDUCATION_VARIANTS: Record<EducationLevel, string[]> = {
@@ -91,134 +90,265 @@ export const EDUCATION_VARIANTS: Record<EducationLevel, string[]> = {
 };
 
 export const JOB_FUNCTION_VARIANTS: Record<JobFunction, string[]> = {
-  engineering: [
-    'engineering', 'engineer', 'mechanical', 'electrical', 'civil',
-    'structural', 'chemical', 'automotive', 'industrial', 'mechatronics',
+  // ── Engineering & Technical ──
+  eng: [
+    'engineering', 'engineer', 'mechanical engineer', 'electrical engineer',
+    'civil engineer', 'structural engineer', 'chemical engineer',
+    'industrial engineer', 'mechatronics', 'mechanical', 'electrical',
+    'civil', 'structural', 'automotive engineer', 'machinist', 'production engineering',
   ],
-  finance: [
+  itt: [
+    'information technology', 'it', 'ict', 'software', 'developer', 'programmer',
+    'systems administrator', 'network administrator', 'ict technician', 'ict officer',
+    'helpdesk', 'it support', 'devops', 'sre', 'site reliability',
+    'frontend', 'backend', 'fullstack', 'full stack', 'web developer',
+    'mobile developer', 'database administrator', 'qa', 'testing',
+  ],
+  cys: [
+    'cybersecurity', 'information security', 'infosec', 'penetration testing',
+    'vulnerability', 'security operations', 'soc', 'threat hunting',
+    'security engineering', 'siem', 'security governance',
+  ],
+
+  // ── Science & Health ──
+  hlt: [
+    'healthcare', 'health', 'medical', 'nursing', 'clinical', 'nurse',
+    'patient care', 'hospital', 'midwifery', 'maternal', 'obstetrics',
+    'gynaecology', 'pharmacy', 'pharmacist', 'physiotherapy', 'public health',
+    'community health', 'registered nurse', 'tb management', 'palliative care',
+    'infection prevention', 'imci',
+  ],
+  pha: [
+    'pharmaceutical', 'life sciences', 'drug development', 'clinical research',
+    'pharmacovigilance', 'gmp', 'drug manufacturing', 'pharma sales',
+  ],
+
+  // ── Business & Finance ──
+  fin: [
     'finance', 'accounting', 'accountant', 'audit', 'auditing', 'tax',
-    'treasury', 'bookkeeping', 'financial', 'cpa',
+    'treasury', 'bookkeeping', 'financial', 'cpa', 'ifrs', 'payroll',
+    'accounts assistant', 'financial reporting', 'sage', 'quickbooks', 'pastel',
+    'statutory deductions', 'paye', 'nssf', 'shif', 'vat',
+    'financial analysis', 'cost accounting', 'management accounting',
+    'investment', 'portfolio', 'wealth management',
   ],
-  marketing: [
+  bfs: [
+    'banking', 'banker', 'lending', 'credit', 'branch banking', 'fintech',
+    'microfinance', 'sacco', 'mobile banking', 'business banker',
+    'relationship officer', 'branch manager banking', 'retail banking',
+    'corporate banking', 'trade finance', 'business banking',
+    'relationship manager', 'finacle', 'flexcube',
+  ],
+  ins: [
+    'insurance', 'underwriting', 'claims', 'actuarial', 'policy',
+    'insurer', 'insurance broker', 'risk assessment insurance',
+  ],
+
+  // ── Building & Infrastructure ──
+  con: [
+    'construction', 'building', 'site manager', 'site engineer', 'foreman',
+    'mason', 'quantity surveyor', 'architecture', 'architect', 'contractor',
+    'project manager construction', 'building construction', 'civil works',
+    'mep', 'structural engineer',
+  ],
+  min: [
+    'mining', 'geology', 'mineral', 'extraction', 'quarry', 'mine',
+    'exploration', 'resource estimation', 'mine planning',
+  ],
+  enu: [
+    'energy', 'power', 'renewable', 'solar', 'geothermal', 'utility',
+    'power generation', 'transmission', 'distribution', 'energy management',
+  ],
+  mfg: [
+    'manufacturing', 'factory', 'production', 'assembly', 'quality control',
+    'quality assurance', 'plant', 'machining', 'welding', 'fabrication',
+    'production manager', 'shift supervisor', 'packaging', 'process engineering',
+    'cement', 'manufacturing plant',
+  ],
+
+  // ── Government & Social ──
+  gpa: [
+    'government', 'civil service', 'public service', 'county', 'ministry',
+    'parastatal', 'state corporation', 'public officer', 'census',
+    'national government', 'county government',
+  ],
+  swc: [
+    'social work', 'social worker', 'community development', 'counseling',
+    'counselling', 'child protection', 'family services', 'psychological counseling',
+    'community social work', 'geriatric care',
+  ],
+  npo: [
+    'ngo', 'non-profit', 'non profit', 'development', 'humanitarian',
+    'programme officer', 'field officer', 'monitoring and evaluation',
+    'm&e', 'beneficiary', 'relief', 'charity', 'donor funded',
+    'food aid', 'cash transfer', 'hunger safety net', 'wfp', 'unicef',
+    'dfid', 'usaid', 'community mobilization',
+  ],
+
+  // ── Creative & Media ──
+  mkt: [
     'marketing', 'brand', 'advertising', 'digital marketing', 'content',
-    'seo', 'social media', 'communications', 'pr', 'public relations',
-    'broadcast', 'journalism', 'journalist', 'news anchor', 'news presenter',
-    'radio presenter', 'programme producer', 'program producer', 'reporter',
-    'media production', 'television', 'tv production', 'video editor',
-    'media manager', 'media professional', 'content creator',
-    'technical operator', 'camera operator', 'production assistant',
+    'seo', 'sem', 'social media management', 'communications', 'pr',
+    'public relations', 'market research', 'growth hacking',
   ],
-  sales: [
-    'sales', 'business development', 'b2b', 'b2c', 'account management',
-    'sales representative', 'sales executive', 'territory',
-  ],
-  operations: [
-    'operations', 'supply chain', 'logistics', 'procurement', 'warehouse',
-    'inventory', 'project management', 'operations management',
-  ],
-  human_resources: [
-    'human resources', 'hr', 'recruitment', 'talent acquisition',
-    'people operations', 'personnel', 'staffing', 'payroll',
-  ],
-  technology: [
-    'technology', 'software', 'it', 'information technology',
-    'developer', 'programmer', 'data science', 'devops', 'cybersecurity',
-    'systems administrator', 'frontend', 'backend', 'fullstack',
-  ],
-  design: [
+  cad: [
     'design', 'graphic design', 'ui', 'ux', 'product design',
-    'visual design', 'web design', 'creative',
+    'visual design', 'web design', 'creative', 'fashion design',
+    'interior design', 'photography', 'animation', 'ux/ui design',
   ],
-  customer_service: [
-    'customer service', 'customer support', 'client service',
-    'call center', 'helpdesk', 'customer success', 'customer care',
+  mec: [
+    'journalism', 'journalist', 'news', 'broadcasting', 'media',
+    'tv production', 'radio production', 'editor', 'reporter',
+    'news anchor', 'news presenter', 'media production', 'video editor',
+    'media manager', 'content creator', 'producer',
   ],
-  healthcare: [
-    'healthcare', 'health', 'medical', 'nursing', 'clinical', 'pharmacy',
-    'patient care', 'hospital', 'physiotherapy', 'public health',
+
+  // ── Sales & Operations ──
+  sal: [
+    'sales', 'business development', 'b2b', 'b2c', 'account management',
+    'sales representative', 'sales executive', 'territory', 'selling',
+    'key account management', 'technical sales', 'direct sales',
+    'sales engineer', 'door to door', 'telesales',
   ],
-  education: [
+  osc: [
+    'operations', 'supply chain', 'logistics', 'procurement', 'warehouse',
+    'inventory', 'operations management', 'operations officer',
+    'freight', 'customs', 'import', 'export', 'distribution',
+  ],
+
+  // ── People & Education ──
+  hrm: [
+    'human resources', 'hr', 'recruitment', 'talent acquisition',
+    'people operations', 'personnel', 'staffing', 'payroll management',
+    'compensation', 'benefits', 'training', 'organizational development',
+    'hris', 'workday',
+  ],
+  edu: [
     'education', 'teaching', 'teacher', 'tutor', 'lecturer', 'trainer',
-    'curriculum', 'instructional', 'academic',
+    'curriculum', 'instructional', 'academic', 'school', 'tvet',
+    'headteacher', 'principal', 'dean', 'director of studies',
+    'tsc', 'kenya curriculum', 'kcse', 'kcpe', 'pedagogy',
   ],
-  legal: [
+
+  // ── Professional Services ──
+  leg: [
     'legal', 'law', 'lawyer', 'attorney', 'counsel', 'paralegal',
-    'compliance', 'regulatory', 'advocate',
+    'compliance', 'regulatory', 'advocate', 'litigation', 'prosecutor',
+    'criminal law', 'corporate law', 'contract law', 'court',
+    'arbitration', 'legal officer', 'legal research',
   ],
-  // ── Kenya-market expansions ──
-  agriculture: [
+  cnt: [
+    'consulting', 'consultant', 'consultancy', 'advisory', 'advisor',
+    'strategy', 'management consulting', 'audit consulting',
+    'business advisory', 'tax advisory', 'risk management advisory',
+  ],
+  dsa: [
+    'data analysis', 'data science', 'data analyst', 'statistician',
+    'statistics', 'bi', 'business intelligence', 'analytics',
+    'visualization', 'machine learning', 'applied statistics',
+    'python data', 'r programming', 'data visualization', 'kobo toolbox',
+    'redcap', 'm&e', 'monitoring and evaluation',
+  ],
+
+  // ── Trade & Transport ──
+  toh: [
+    'hospitality', 'hotel', 'tourism', 'tourist', 'restaurant', 'catering',
+    'chef', 'cook', 'front desk', 'housekeeping', 'lodge', 'safari',
+    'travel', 'events management', 'conference', 'barista',
+  ],
+  trl: [
+    'transport', 'driving', 'driver', 'delivery', 'fleet',
+    'dispatcher', 'freight', 'courier', 'motorcycle', 'boda boda',
+    'matatu', 'bus', 'truck', 'port', 'customs clearing',
+    'professional driving', 'heavy vehicle',
+  ],
+  tel: [
+    'telecom', 'telecommunications', 'mobile network', 'isp', 'fiber',
+    'network infrastructure', 'rf engineering', 'mobile services',
+    'ericsson', 'huawei telecom', 'nokia telecom', 'zte',
+  ],
+  aut: [
+    'automotive', 'vehicle', 'motor', 'mechanic', 'parts',
+    'vehicle assembly', 'auto repair', 'auto electrical', 'body & paint',
+    'vehicle inspector', 'sales engineer automotive',
+  ],
+  ava: [
+    'aviation', 'aircraft', 'flight', 'airport', 'airline', 'pilot',
+    'air traffic control', 'aircraft maintenance', 'airport management',
+  ],
+
+  // ── Sector-Specific ──
+  agr: [
     'agriculture', 'farming', 'agribusiness', 'agronomy', 'agricultural',
     'horticulture', 'floriculture', 'aquaculture', 'veterinary', 'livestock',
     'crop', 'farm', 'extension officer', 'agricultural officer',
+    'agri-tech', 'precision agriculture', 'dairy farming', 'poultry',
   ],
-  construction: [
-    'construction', 'building', 'site manager', 'site engineer',
-    'foreman', 'mason', 'plumber', 'electrician', 'quantity surveyor',
-    'architecture', 'architect', 'building surveyor', 'real estate',
-    'contractor', 'project manager construction',
+  ree: [
+    'real estate', 'property', 'valuation', 'estate agent', 'letting',
+    'property management', 'land survey', 'property developer',
   ],
-  hospitality: [
-    'hospitality', 'hotel', 'tourism', 'tourist', 'restaurant', 'catering',
-    'chef', 'cook', 'waiter', 'waitress', 'bartender', 'barista',
-    'front desk', 'receptionist hotel', 'housekeeping', 'lodge', 'safari',
-    'travel', 'events management', 'conference',
+  rcg: [
+    'retail', 'supermarket', 'merchandising', 'store', 'consumer goods',
+    'shop', 'wholesale', 'buying',
   ],
-  transport: [
-    'transport', 'driving', 'driver', 'delivery', 'logistics',
-    'shipping', 'fleet', 'dispatcher', 'warehouse', 'freight',
-    'courier', 'motorcycle', 'boda boda', 'matatu', 'bus', 'truck',
-    'port', 'customs', 'clearing agent',
+  ecm: [
+    'e-commerce', 'ecommerce', 'marketplace', 'digital payments',
+    'mobile money', 'online', 'jumia', 'kilimall', 'dropshipping',
+    'm-pesa', 'lipa na mpesa',
   ],
-  security: [
-    'security', 'guard', 'security guard', 'safety', 'health and safety',
-    'health & safety', 'occupational safety', 'fire safety', 'investigation',
-    'investigator', 'private security', 'surveillance', 'loss prevention',
-    'military', 'armed forces', 'defence', 'defense',
-  ],
-  community_social: [
-    'community', 'social work', 'social worker', 'ngo', 'non-profit',
-    'non profit', 'development', 'community development', 'counseling',
-    'counselling', 'psychologist', 'sociologist', 'programme officer',
-    'field officer', 'monitoring and evaluation', 'm&e', 'beneficiary',
-    'humanitarian', 'relief', 'charity', 'volunteer coordination',
-  ],
-  manufacturing: [
-    'manufacturing', 'factory', 'production', 'assembly', 'quality control',
-    'quality assurance', 'plant', 'machining', 'welding', 'fabrication',
-    'industrial', 'production manager', 'shift supervisor', 'packaging',
-  ],
-  government: [
-    'government', 'civil service', 'public service', 'county', 'ministry',
-    'parastatal', 'state corporation', 'public officer', 'admin officer',
-    'clerical', 'registry', 'government officer',
-  ],
-  consulting: [
-    'consulting', 'consultant', 'consultancy', 'advisory', 'advisor',
-    'advisory', 'strategy', 'management consulting', 'audit consulting',
-    'business advisory', 'tax advisory', 'risk management',
-  ],
-  environment: [
+  env: [
     'environment', 'environmental', 'conservation', 'wildlife', 'forestry',
-    'climate', 'natural resources', 'mining', 'geology', 'water',
-    'sanitation', 'waste management', 'renewable energy', 'solar',
+    'climate', 'natural resources', 'sanitation', 'waste management',
+    'renewable energy', 'solar', 'esg', 'sustainability',
+  ],
+
+  // ── Support Functions ──
+  sed: [
+    'security', 'guard', 'security guard', 'safety', 'health and safety',
+    'investigation', 'investigator', 'surveillance', 'loss prevention',
+    'military', 'armed forces', 'defence', 'defense', 'cctv',
+    'physical security', 'electronic security',
+  ],
+  pfm: [
+    'facilities', 'building maintenance', 'property management',
+    'janitorial', 'cleaning', 'space planning', 'vendor management',
+    'hvac', 'building automation', 'bms',
+  ],
+  spr: [
+    'sports', 'coaching', 'fitness', 'athletics', 'recreation',
+    'sports management', 'personal training', 'gym',
+  ],
+  vah: [
+    'veterinary', 'animal health', 'veterinary officer', 'vet',
+    'animal medicine', 'livestock health',
+  ],
+  wms: [
+    'waste', 'sanitation', 'recycling', 'water treatment', 'garbage',
+    'waste collection', 'waste management',
+  ],
+  adm: [
+    'administration', 'admin', 'office', 'reception', 'data entry',
+    'clerical', 'filing', 'records', 'executive assistant', 'pa',
+    'office manager', 'secretary',
   ],
 };
 
 export const SECTOR_VARIANTS: Record<Sector, string[]> = {
-  technology: ['technology', 'tech', 'software', 'it', 'saas', 'fintech'],
+  technology: ['technology', 'tech', 'software', 'it', 'saas', 'fintech', 'ict'],
   financial_services: [
     'financial services', 'banking', 'finance', 'insurance',
-    'investment', 'microfinance', 'sacco',
+    'investment', 'microfinance', 'sacco', 'lending',
   ],
-  healthcare: ['healthcare', 'health', 'medical', 'hospital', 'pharma'],
-  education: ['education', 'school', 'university', 'college', 'training'],
-  manufacturing: ['manufacturing', 'factory', 'production', 'industrial'],
-  retail: ['retail', 'ecommerce', 'e-commerce', 'supermarket', 'wholesale'],
-  agriculture: ['agriculture', 'agribusiness', 'farming', 'agritech'],
-  construction: ['construction', 'real estate', 'property', 'civil works'],
-  hospitality: ['hospitality', 'hotel', 'tourism', 'restaurant', 'catering'],
-  government: ['government', 'public sector', 'civil service', 'ministry'],
-  non_profit: ['non profit', 'ngo', 'charity', 'non-profit', 'foundation'],
+  healthcare: ['healthcare', 'health', 'medical', 'hospital', 'pharma', 'nursing'],
+  education: ['education', 'school', 'university', 'college', 'training', 'tvet'],
+  manufacturing: ['manufacturing', 'factory', 'production', 'industrial', 'assembly'],
+  retail: ['retail', 'ecommerce', 'e-commerce', 'supermarket', 'wholesale', 'consumer goods'],
+  agriculture: ['agriculture', 'agribusiness', 'farming', 'agritech', 'livestock'],
+  construction: ['construction', 'real estate', 'property', 'civil works', 'building'],
+  hospitality: ['hospitality', 'hotel', 'tourism', 'restaurant', 'catering', 'travel'],
+  government: ['government', 'public sector', 'civil service', 'ministry', 'county'],
+  non_profit: ['non profit', 'ngo', 'charity', 'non-profit', 'foundation', 'development'],
   media: ['media', 'broadcasting', 'journalism', 'publishing', 'entertainment'],
 };
 
@@ -233,22 +363,10 @@ export const JOB_TYPE_VARIANTS: Record<JobType, string[]> = {
 
 // ============================================================================
 // Core normalization function
-// Uses word-boundary regex to prevent substring false positives
 // ============================================================================
 
 /**
  * Normalize a free-text value to a canonical enum using word-boundary matching.
- * Returns null if no variant matches.
- *
- * Accepts:
- *   - The canonical key itself (e.g. 'customer_service', 'bachelors')
- *   - Any variant in the variants map (e.g. 'customer service', 'Bachelor')
- *   - Word-boundary regex matches (e.g. 'HR Manager' -> 'human_resources')
- *
- * @example
- * normalizeEnum('HR Manager', JOB_FUNCTION_VARIANTS) => 'human_resources'
- * normalizeEnum('customer_service', JOB_FUNCTION_VARIANTS) => 'customer_service'
- * normalizeEnum('Research Scientist', JOB_FUNCTION_VARIANTS) => null (NOT 'human_resources')
  */
 export function normalizeEnum<T extends string>(
   input: string | null | undefined,
@@ -256,16 +374,14 @@ export function normalizeEnum<T extends string>(
 ): T | null {
   if (!input || typeof input !== 'string') return null;
 
-  // Normalize the input: lowercase, trim, collapse whitespace
   const normalized = input.toLowerCase().trim().replace(/\s+/g, ' ');
 
-  // First: check if the input IS the canonical key (e.g. 'customer_service', 'bachelors')
-  // This handles the case where the LLM returns the canonical string directly.
+  // First: check if the input IS the canonical key
   for (const [canonical] of Object.entries(variants) as [T, string[]][]) {
     if (normalized === canonical.toLowerCase()) return canonical;
   }
 
-  // Second: try exact match against the variant list (fastest path)
+  // Second: try exact match against the variant list
   for (const [canonical, list] of Object.entries(variants) as [T, string[]][]) {
     if (list.includes(normalized)) return canonical;
   }
@@ -273,9 +389,7 @@ export function normalizeEnum<T extends string>(
   // Third: try word-boundary regex for each variant
   for (const [canonical, list] of Object.entries(variants) as [T, string[]][]) {
     for (const variant of list) {
-      // Escape regex special chars, then wrap with word boundaries
       const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Multi-word variants need \b on each end; word chars in middle are fine
       const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
       if (pattern.test(normalized)) {
         return canonical;
@@ -303,13 +417,6 @@ export const normalizeJobType = (input: string): JobType | null =>
 // Skills normalization: lowercase, trim, dedupe
 // ============================================================================
 
-/**
- * Normalize a list of skill strings.
- * - Lowercase
- * - Trim
- * - Remove empty
- * - Deduplicate
- */
 export function normalizeSkills(skills: (string | null | undefined)[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -332,11 +439,6 @@ export function educationLevelIndex(level: EducationLevel): number {
   return EDUCATION_ORDER.indexOf(level);
 }
 
-/**
- * Compare two education levels.
- * Returns positive if `candidate` is higher than `required`,
- * negative if lower, 0 if equal.
- */
 export function compareEducationLevels(
   candidate: EducationLevel,
   required: EducationLevel,

@@ -85,11 +85,12 @@ export function JobDetailPanel({ jobId, onBack }: JobDetailPanelProps) {
               </div>
             </div>
             <Separator className="my-4" />
-            <div className="grid grid-cols-5 gap-3 text-center">
+            <div className="grid grid-cols-6 gap-3 text-center">
               <ScoreBar label="Title" value={match.titleScore} max={40} />
               <ScoreBar label="Skills" value={match.skillsScore} max={35} />
               <ScoreBar label="Education" value={match.educationScore} max={15} />
-              <ScoreBar label="Field" value={match.fieldScore} max={5} />
+              <ScoreBar label="Specialization" value={match.specializationScore} max={10} />
+              <ScoreBar label="Family" value={match.familyScore} max={5} />
               <ScoreBar label="Experience" value={match.experienceScore} max={10} />
             </div>
           </CardContent>

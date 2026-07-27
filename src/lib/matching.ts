@@ -1,14 +1,18 @@
 // ============================================================================
 // lib/matching.ts
-// Scoring algorithm (Section 6 of v4.0 doc)
-// Max 100 points across 5 dimensions:
-//   - Job Title match:    40 pts
-//   - Skills match:       35 pts
-//   - Education Level:    15 pts
-//   - Education Field:     5 pts
-//   - Experience Years:   10 pts
-// Function match is a hard requirement (filter, not scored).
-// Missing data never disqualifies — it just scores 0 for that dimension.
+// Scoring algorithm v2.0 — Career Family + Specialization architecture
+//
+// Raw scores sum to 135, normalized to 100:
+//   - Title match:            45 pts (raw)
+//   - Skills match:           40 pts (raw)
+//   - Specialization match:   20 pts (raw)
+//   - Family match:          10 pts (raw)
+//   - Education Level:        10 pts (raw)
+//   - Experience Years:       10 pts (raw)
+//
+// Function (Career Family) is NO LONGER a hard filter.
+// Matching now cross-references all candidate clusters against all jobs.
+// Specialization bonus provides precise matching within the same family.
 // ============================================================================
 
 import {
@@ -19,19 +23,24 @@ import {
   EDUCATION_ORDER,
 } from './normalization';
 import { scoreFieldRelatedness } from './field-mapping';
+import { isValidSpecialization, getSpecializationsForFamily } from './taxonomy';
 
-// Score weights (must sum to 100)
+// Raw score weights (sum = 135, normalized to 100)
 export const SCORE_WEIGHTS = {
-  TITLE: 40,
-  SKILLS: 35,
-  EDUCATION_LEVEL: 15,
-  EDUCATION_FIELD: 5,
+  TITLE: 45,
+  SKILLS: 40,
+  SPECIALIZATION: 20,
+  FAMILY: 10,
+  EDUCATION_LEVEL: 10,
   EXPERIENCE: 10,
 } as const;
+
+const RAW_TOTAL = 135; // sum of all weights
 
 export interface ClusterForScoring {
   id: string;
   function: JobFunction;
+  specialization?: string | null;
   jobTitles: string[];     // e.g. ["Accountant", "Senior Accountant"]
   skills: string[];        // normalized lowercase
   yearsExperience: number;
@@ -40,6 +49,7 @@ export interface ClusterForScoring {
 export interface JobForScoring {
   id: string;
   function: JobFunction;
+  specialization?: string | null;
   title: string;
   requiredSkills: string[];   // normalized lowercase
   preferredSkills?: string[];
@@ -57,8 +67,9 @@ export interface ScoreBreakdown {
   totalScore: number;
   titleScore: number;
   skillsScore: number;
+  specializationScore: number;
+  familyScore: number;
   educationScore: number;
-  fieldScore: number;
   experienceScore: number;
   explanations: MatchExplanation[];
 }
@@ -66,13 +77,14 @@ export interface ScoreBreakdown {
 export type MatchExplanation =
   | 'exact_function_match'
   | 'strong_skill_overlap'
+  | 'specialization_match'
   | 'education_meets_minimum'
   | 'education_field_related'
   | 'experience_meets_minimum'
   | 'title_keyword_overlap';
 
 // ============================================================================
-// Title scoring (max 40 pts)
+// Title scoring (max 45 pts raw)
 // Word-boundary keyword overlap between cluster titles and job title
 // ============================================================================
 
@@ -84,10 +96,9 @@ export function scoreTitle(clusterTitles: string[], jobTitle: string): {
     return { score: 0, matched: false };
   }
 
-  // Extract significant words from the job title (length > 2, no stopwords)
   const STOPWORDS = new Set([
     'and', 'the', 'for', 'with', 'junior', 'senior', 'lead', 'principal',
-    'chief', 'head', 'of', 'in', 'to', 'a', 'an',
+    'chief', 'head', 'of', 'in', 'to', 'a', 'an', 'at', 'i', 'ii', 'iii',
   ]);
 
   const jobWords = new Set(
@@ -114,7 +125,6 @@ export function scoreTitle(clusterTitles: string[], jobTitle: string): {
 
     if (clusterWords.length === 0) continue;
 
-    // Count overlapping words
     const clusterWordSet = new Set(clusterWords);
     let overlap = 0;
     for (const word of jobWords) {
@@ -123,7 +133,6 @@ export function scoreTitle(clusterTitles: string[], jobTitle: string): {
 
     if (overlap > 0) {
       matched = true;
-      // Score is overlap ratio * max weight
       const ratio = overlap / Math.max(jobWords.size, clusterWordSet.size);
       const score = Math.round(ratio * SCORE_WEIGHTS.TITLE);
       bestScore = Math.max(bestScore, score);
@@ -134,8 +143,7 @@ export function scoreTitle(clusterTitles: string[], jobTitle: string): {
 }
 
 // ============================================================================
-// Skills scoring (max 35 pts)
-// Weighted by overlap count, with required skills weighted more than preferred
+// Skills scoring (max 40 pts raw)
 // ============================================================================
 
 export function scoreSkills(
@@ -161,18 +169,15 @@ export function scoreSkills(
     if (candidateSkillSet.has(s)) preferredOverlap++;
   }
 
-  // Required skills weighted 2x preferred
   const totalRequired = requiredSkills.length || 1;
   const totalPreferred = preferredSkills.length || 1;
   const requiredRatio = requiredOverlap / totalRequired;
   const preferredRatio = preferredOverlap / totalPreferred;
 
-  // Composite: 70% weight on required, 30% on preferred
   const composite = 0.7 * requiredRatio + 0.3 * preferredRatio;
   const score = Math.round(Math.min(1, composite) * SCORE_WEIGHTS.SKILLS);
 
   const totalOverlap = requiredOverlap + preferredOverlap;
-  // "Strong" overlap = at least 50% of required skills match
   const isStrong = requiredSkills.length > 0 && requiredOverlap / requiredSkills.length >= 0.5;
 
   return {
@@ -183,8 +188,51 @@ export function scoreSkills(
 }
 
 // ============================================================================
-// Education level scoring (max 15 pts)
-// Sliding scale based on candidate's highest level vs job's minimum
+// Specialization scoring (max 20 pts raw)
+// Direct code match between candidate specialization and job specialization
+// ============================================================================
+
+export function scoreSpecialization(
+  clusterSpec: string | null | undefined,
+  jobSpec: string | null | undefined,
+  clusterFamily: JobFunction,
+  jobFamily: JobFunction,
+): { score: number; matched: boolean } {
+  if (!clusterSpec || !jobSpec) {
+    return { score: 0, matched: false };
+  }
+
+  // Exact specialization code match (highest signal)
+  if (clusterSpec.toUpperCase() === jobSpec.toUpperCase()) {
+    return { score: SCORE_WEIGHTS.SPECIALIZATION, matched: true };
+  }
+
+  // Validate specializations belong to their respective families
+  const clusterValid = isValidSpecialization(clusterSpec.toUpperCase(), clusterFamily);
+  const jobValid = isValidSpecialization(jobSpec.toUpperCase(), jobFamily);
+
+  if (!clusterValid || !jobValid) {
+    return { score: 0, matched: false };
+  }
+
+  return { score: 0, matched: false };
+}
+
+// ============================================================================
+// Family scoring (max 10 pts raw)
+// Simple binary: same family = full points, different = 0
+// ============================================================================
+
+export function scoreFamily(
+  clusterFamily: JobFunction,
+  jobFamily: JobFunction,
+): { score: number; matched: boolean } {
+  const matched = clusterFamily === jobFamily;
+  return { score: matched ? SCORE_WEIGHTS.FAMILY : 0, matched };
+}
+
+// ============================================================================
+// Education level scoring (max 10 pts raw)
 // ============================================================================
 
 export function scoreEducationLevel(
@@ -196,40 +244,21 @@ export function scoreEducationLevel(
   }
 
   const diff = compareEducationLevels(candidateHighestLevel, jobMinimum);
-
-  // meetsMinimum = candidate level >= job minimum
   const meetsMinimum = diff >= 0;
 
   let score: number;
-  if (diff >= 2) score = 15;        // Exceeds by 2+ levels
-  else if (diff === 1) score = 13;  // Exceeds by 1 level
-  else if (diff === 0) score = 12;  // Exactly meets minimum
-  else if (diff === -1) score = 6;  // One level below
-  else if (diff === -2) score = 2;  // Two levels below
-  else score = 0;                   // Three or more below
+  if (diff >= 2) score = 10;
+  else if (diff === 1) score = 9;
+  else if (diff === 0) score = 8;
+  else if (diff === -1) score = 4;
+  else if (diff === -2) score = 1;
+  else score = 0;
 
   return { score, meetsMinimum };
 }
 
 // ============================================================================
-// Education field scoring (max 5 pts)
-// Delegates to field-mapping.ts 3-tier matching
-// ============================================================================
-
-export function scoreEducationField(
-  candidateField: string | null,
-  jobField: string,
-): { score: number; isRelated: boolean } {
-  if (!candidateField) {
-    return { score: 0, isRelated: false };
-  }
-  const score = scoreFieldRelatedness(candidateField, jobField);
-  return { score, isRelated: score > 0 };
-}
-
-// ============================================================================
-// Experience scoring (max 10 pts)
-// Sliding scale: ratio of candidate years to job minimum
+// Experience scoring (max 10 pts raw)
 // ============================================================================
 
 export function scoreExperience(
@@ -237,7 +266,6 @@ export function scoreExperience(
   jobMinimum: number,
 ): { score: number; meetsMinimum: boolean } {
   if (candidateYears <= 0 || jobMinimum <= 0) {
-    // If job has no minimum, full credit
     if (jobMinimum <= 0) return { score: 10, meetsMinimum: true };
     return { score: 0, meetsMinimum: false };
   }
@@ -257,15 +285,15 @@ export function scoreExperience(
 
 // ============================================================================
 // Main scoring function
-// Combines all dimensions and produces a ScoreBreakdown
+// Combines all dimensions and normalizes to 0-100
 // ============================================================================
 
 export function scoreMatch(
   cluster: ClusterForScoring,
   job: JobForScoring,
-  candidateEducation: EducationForScoring[],  // array per Section 3.1
+  candidateEducation: EducationForScoring[],
 ): ScoreBreakdown {
-  const explanations: MatchExplanation[] = ['exact_function_match'];
+  const explanations: MatchExplanation[] = [];
 
   // 1. Title score
   const title = scoreTitle(cluster.jobTitles, job.title);
@@ -275,7 +303,20 @@ export function scoreMatch(
   const skills = scoreSkills(cluster.skills, job.requiredSkills, job.preferredSkills);
   if (skills.isStrong) explanations.push('strong_skill_overlap');
 
-  // 3. Education level — use candidate's HIGHEST level
+  // 3. Specialization score
+  const spec = scoreSpecialization(
+    cluster.specialization,
+    job.specialization,
+    cluster.function,
+    job.function,
+  );
+  if (spec.matched) explanations.push('specialization_match');
+
+  // 4. Family score
+  const family = scoreFamily(cluster.function, job.function);
+  if (family.matched) explanations.push('exact_function_match');
+
+  // 5. Education level
   const highestLevel = candidateEducation.reduce<EducationLevel | null>((highest, edu) => {
     if (!highest) return edu.level;
     return educationLevelIndex(edu.level) > educationLevelIndex(highest) ? edu.level : highest;
@@ -283,50 +324,49 @@ export function scoreMatch(
   const eduLevel = scoreEducationLevel(highestLevel, job.minEducation);
   if (eduLevel.meetsMinimum) explanations.push('education_meets_minimum');
 
-  // 4. Education field — check if ANY candidate education field is related to job field
-  let bestFieldScore = 0;
-  let fieldIsRelated = false;
-  for (const edu of candidateEducation) {
-    const fieldResult = scoreEducationField(edu.field, job.educationField);
-    if (fieldResult.score > bestFieldScore) {
-      bestFieldScore = fieldResult.score;
-      fieldIsRelated = fieldResult.isRelated;
-    }
-  }
-  if (fieldIsRelated) explanations.push('education_field_related');
-
-  // 5. Experience score
+  // 6. Experience score
   const experience = scoreExperience(cluster.yearsExperience, job.minExperience);
   if (experience.meetsMinimum) explanations.push('experience_meets_minimum');
 
-  // Sum (max 100)
-  const totalScore = Math.min(
-    100,
-    title.score + skills.score + eduLevel.score + bestFieldScore + experience.score,
-  );
+  // Sum raw scores and normalize to 0-100
+  const rawTotal = title.score + skills.score + spec.score + family.score + eduLevel.score + experience.score;
+  const totalScore = Math.min(100, Math.round((rawTotal / RAW_TOTAL) * 100));
 
   return {
     totalScore,
-    titleScore: title.score,
-    skillsScore: skills.score,
-    educationScore: eduLevel.score,
-    fieldScore: bestFieldScore,
-    experienceScore: experience.score,
+    titleScore: Math.round((title.score / RAW_TOTAL) * 100),
+    skillsScore: Math.round((skills.score / RAW_TOTAL) * 100),
+    specializationScore: Math.round((spec.score / RAW_TOTAL) * 100),
+    familyScore: Math.round((family.score / RAW_TOTAL) * 100),
+    educationScore: Math.round((eduLevel.score / RAW_TOTAL) * 100),
+    experienceScore: Math.round((experience.score / RAW_TOTAL) * 100),
     explanations,
   };
 }
 
 // ============================================================================
-// Function filter check (hard requirement, not scored)
+// No more hard function filter — all clusters score against all jobs
 // ============================================================================
 
 /**
- * Returns true if the cluster's function matches the job's function.
- * This is a hard filter — non-matching clusters are excluded from scoring entirely.
+ * Returns true if a match is worth persisting (score > 0).
+ * With the new architecture, ALL clusters are scored against ALL jobs.
+ * The specialization and family bonuses differentiate good matches from noise.
  */
-export function isFunctionMatch(
-  clusterFunction: JobFunction,
-  jobFunction: JobFunction,
+export function isMatchWorthSaving(
+  cluster: ClusterForScoring,
+  job: JobForScoring,
 ): boolean {
-  return clusterFunction === jobFunction;
+  // Quick pre-filter: same family OR overlapping titles → score
+  if (cluster.function === job.function) return true;
+
+  // Check for title overlap
+  const titleResult = scoreTitle(cluster.jobTitles, job.title);
+  if (titleResult.matched) return true;
+
+  // Check for skill overlap (at least 2 required skills)
+  const skillResult = scoreSkills(cluster.skills, job.requiredSkills);
+  if (skillResult.overlapCount >= 2) return true;
+
+  return false;
 }

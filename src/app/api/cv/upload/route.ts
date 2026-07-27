@@ -25,7 +25,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { extractCv } from '@/lib/llm/extract-cv';
 import { parseDocument, ParseError, SUPPORTED_EXTENSIONS } from '@/lib/parsers/parse-document';
-import { scoreMatch, isFunctionMatch } from '@/lib/matching';
+import { scoreMatch, isMatchWorthSaving } from '@/lib/matching';
 import {
   EducationLevel,
   JobFunction,
@@ -192,19 +192,26 @@ export async function POST(request: Request) {
     // ── 8. Persist: work experience clusters ──────────────────────────────
     // Auto-select the top cluster (most years of experience)
 
-    const clusterRecords = await Promise.all(
+      const clusterRecords = await Promise.all(
       extracted.suggestedClusters.map((cluster, index) =>
         db.workExperienceCluster.create({
           data: {
             candidateId: candidate.id,
             function: cluster.function as JobFunction,
+            specialization: cluster.specialization ?? null,
             jobTitles: JSON.stringify(cluster.jobTitles),
             skills: JSON.stringify(cluster.skills),
             yearsExperience: cluster.yearsExperience,
-            isSelected: index === 0, // Auto-select top trajectory
+            isSelected: index === 0,
             rawExperiences: JSON.stringify(
               extracted.workExperiences
-                .filter((exp) => exp.function === cluster.function)
+                .filter((exp) => {
+                  const expFn = exp.function;
+                  const expSpec = exp.specialization;
+                  return expFn === cluster.function && (
+                    !cluster.specialization || expSpec === cluster.specialization
+                  );
+                })
                 .map((exp) => ({
                   jobTitle: exp.jobTitle,
                   company: exp.company,
@@ -228,14 +235,38 @@ export async function POST(request: Request) {
     let matchesCreated = 0;
     for (const job of activeJobs) {
       for (const cluster of extracted.suggestedClusters) {
-        // The cluster we just persisted has an ID — match by function
-        const clusterRecord = clusterRecords.find(
-          (cr) => cr.function === cluster.function,
-        );
+        // The cluster we just persisted has an ID
+        const spec = cluster.specialization;
+        const key = spec ? `${cluster.function}:${spec}` : cluster.function;
+        const clusterRecord = clusterRecords.find((cr) => {
+          const crSpec = cr.specialization;
+          const crKey = crSpec ? `${cr.function}:${crSpec}` : cr.function;
+          return crKey === key;
+        });
         if (!clusterRecord) continue;
 
-        // Hard filter: function must match
-        if (!isFunctionMatch(cluster.function as JobFunction, job.function as JobFunction)) {
+        // Pre-filter: skip matches with no signal
+        if (!isMatchWorthSaving(
+          {
+            id: clusterRecord.id,
+            function: cluster.function as JobFunction,
+            specialization: cluster.specialization ?? null,
+            jobTitles: cluster.jobTitles,
+            skills: cluster.skills,
+            yearsExperience: cluster.yearsExperience,
+          },
+          {
+            id: job.id,
+            function: job.function as JobFunction,
+            specialization: job.specialization ?? null,
+            title: job.title,
+            requiredSkills: JSON.parse(job.requiredSkills),
+            preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+            minEducation: job.minEducation as EducationLevel,
+            educationField: job.educationField,
+            minExperience: job.minExperience,
+          },
+        )) {
           continue;
         }
 
@@ -244,6 +275,7 @@ export async function POST(request: Request) {
             {
               id: clusterRecord.id,
               function: cluster.function as JobFunction,
+              specialization: cluster.specialization ?? null,
               jobTitles: cluster.jobTitles,
               skills: cluster.skills,
               yearsExperience: cluster.yearsExperience,
@@ -251,6 +283,7 @@ export async function POST(request: Request) {
             {
               id: job.id,
               function: job.function as JobFunction,
+              specialization: job.specialization ?? null,
               title: job.title,
               requiredSkills: JSON.parse(job.requiredSkills),
               preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
@@ -279,8 +312,9 @@ export async function POST(request: Request) {
               totalScore: breakdown.totalScore,
               titleScore: breakdown.titleScore,
               skillsScore: breakdown.skillsScore,
+              specializationScore: breakdown.specializationScore,
+              familyScore: breakdown.familyScore,
               educationScore: breakdown.educationScore,
-              fieldScore: breakdown.fieldScore,
               experienceScore: breakdown.experienceScore,
               explanations: JSON.stringify(breakdown.explanations),
               stale: false,
@@ -289,8 +323,9 @@ export async function POST(request: Request) {
               totalScore: breakdown.totalScore,
               titleScore: breakdown.titleScore,
               skillsScore: breakdown.skillsScore,
+              specializationScore: breakdown.specializationScore,
+              familyScore: breakdown.familyScore,
               educationScore: breakdown.educationScore,
-              fieldScore: breakdown.fieldScore,
               experienceScore: breakdown.experienceScore,
               explanations: JSON.stringify(breakdown.explanations),
               stale: false,
@@ -318,6 +353,7 @@ export async function POST(request: Request) {
         skillsCount: extracted.skills.length,
         clusters: extracted.suggestedClusters.map((c) => ({
           function: c.function,
+          specialization: c.specialization ?? undefined,
           jobTitles: c.jobTitles,
           skills: c.skills,
           yearsExperience: c.yearsExperience,

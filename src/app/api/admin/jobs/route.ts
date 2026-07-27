@@ -15,7 +15,7 @@ import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { extractJd, validateJdExtraction } from '@/lib/llm/extract-jd';
-import { scoreMatch, isFunctionMatch } from '@/lib/matching';
+import { scoreMatch, isMatchWorthSaving } from '@/lib/matching';
 import {
   normalizeEducationLevel,
   normalizeJobFunction,
@@ -213,7 +213,27 @@ export async function POST(request: Request) {
     let matchesCreated = 0;
     for (const candidate of candidates) {
       for (const cluster of candidate.clusters) {
-        if (!isFunctionMatch(cluster.function as JobFunction, job.function as JobFunction)) {
+        if (
+          !isMatchWorthSaving(
+            {
+              id: cluster.id,
+              function: cluster.function as JobFunction,
+              jobTitles: JSON.parse(cluster.jobTitles),
+              skills: JSON.parse(cluster.skills),
+              yearsExperience: cluster.yearsExperience,
+            },
+            {
+              id: job.id,
+              function: job.function as JobFunction,
+              title: job.title,
+              requiredSkills: JSON.parse(job.requiredSkills),
+              preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+              minEducation: job.minEducation as EducationLevel,
+              educationField: job.educationField,
+              minExperience: job.minExperience,
+            },
+          )
+        ) {
           continue;
         }
 
@@ -250,7 +270,8 @@ export async function POST(request: Request) {
             titleScore: breakdown.titleScore,
             skillsScore: breakdown.skillsScore,
             educationScore: breakdown.educationScore,
-            fieldScore: breakdown.fieldScore,
+            specializationScore: breakdown.specializationScore,
+            familyScore: breakdown.familyScore,
             experienceScore: breakdown.experienceScore,
             explanations: JSON.stringify(breakdown.explanations),
             stale: false,

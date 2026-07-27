@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const cluster1 = await db.workExperienceCluster.create({
       data: {
         candidateId: candidate.id,
-        function: 'finance' as JobFunction,
+        function: 'fin' as JobFunction,
         jobTitles: JSON.stringify(['Accounts Assistant', 'Accountant']),
         skills: JSON.stringify(['accounting', 'ifrs', 'audit', 'taxation', 'quickbooks', 'excel']),
         yearsExperience: 4,
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     const cluster2 = await db.workExperienceCluster.create({
       data: {
         candidateId: candidate.id,
-        function: 'customer_service' as JobFunction,
+        function: 'adm' as JobFunction,
         jobTitles: JSON.stringify(['Office Administrator', 'Customer Service Representative']),
         skills: JSON.stringify(['customer service', 'office administration', 'filing', 'scheduling', 'communication']),
         yearsExperience: 3,
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     await db.workExperienceCluster.create({
       data: {
         candidateId: candidate.id,
-        function: 'marketing' as JobFunction,
+        function: 'mkt' as JobFunction,
         jobTitles: JSON.stringify(['Marketing Intern']),
         skills: JSON.stringify(['social media', 'content writing']),
         yearsExperience: 1,
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     const jobs = [
       {
         title: 'Senior Accountant',
-        function: 'finance' as JobFunction,
+        function: 'fin' as JobFunction,
         sector: 'financial_services' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'bachelors' as EducationLevel,
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       },
       {
         title: 'Accounts Assistant',
-        function: 'finance' as JobFunction,
+        function: 'fin' as JobFunction,
         sector: 'technology' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'diploma' as EducationLevel,
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
       },
       {
         title: 'Office Administrator',
-        function: 'customer_service' as JobFunction,
+        function: 'adm' as JobFunction,
         sector: 'hospitality' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'diploma' as EducationLevel,
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
       },
       {
         title: 'Customer Service Representative',
-        function: 'customer_service' as JobFunction,
+        function: 'adm' as JobFunction,
         sector: 'technology' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'certificate' as EducationLevel,
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
       },
       {
         title: 'Marketing Officer',
-        function: 'marketing' as JobFunction,
+        function: 'mkt' as JobFunction,
         sector: 'media' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'bachelors' as EducationLevel,
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
       },
       {
         title: 'Junior Software Engineer',
-        function: 'technology' as JobFunction,
+        function: 'itt' as JobFunction,
         sector: 'technology' as Sector,
         jobType: 'full_time' as JobType,
         minEducation: 'bachelors' as EducationLevel,
@@ -243,7 +243,7 @@ export async function POST(request: Request) {
     });
 
     // Insert fresh demo jobs
-    const createdJobs = [];
+    const createdJobs: any[] = [];
     for (const j of jobs) {
       const job = await db.job.create({
         data: {
@@ -271,12 +271,32 @@ export async function POST(request: Request) {
     }
 
     // ── Compute matches for demo candidate against all jobs ──────────
-    const { scoreMatch, isFunctionMatch } = await import('@/lib/matching');
+    const { scoreMatch, isMatchWorthSaving } = await import('@/lib/matching');
 
     let matchCount = 0;
     for (const job of createdJobs) {
       // Cluster 1 (finance)
-      if (isFunctionMatch(cluster1.function as JobFunction, job.function as JobFunction)) {
+      if (
+        isMatchWorthSaving(
+          {
+            id: cluster1.id,
+            function: cluster1.function as JobFunction,
+            jobTitles: JSON.parse(cluster1.jobTitles),
+            skills: JSON.parse(cluster1.skills),
+            yearsExperience: cluster1.yearsExperience,
+          },
+          {
+            id: job.id,
+            function: job.function as JobFunction,
+            title: job.title,
+            requiredSkills: JSON.parse(job.requiredSkills),
+            preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+            minEducation: job.minEducation as EducationLevel,
+            educationField: job.educationField,
+            minExperience: job.minExperience,
+          },
+        )
+      ) {
         const breakdown = scoreMatch(
           {
             id: cluster1.id,
@@ -309,7 +329,8 @@ export async function POST(request: Request) {
             titleScore: breakdown.titleScore,
             skillsScore: breakdown.skillsScore,
             educationScore: breakdown.educationScore,
-            fieldScore: breakdown.fieldScore,
+            specializationScore: breakdown.specializationScore,
+            familyScore: breakdown.familyScore,
             experienceScore: breakdown.experienceScore,
             explanations: JSON.stringify(breakdown.explanations),
             stale: false,
@@ -318,8 +339,28 @@ export async function POST(request: Request) {
         matchCount++;
       }
 
-      // Cluster 2 (customer service)
-      if (isFunctionMatch(cluster2.function as JobFunction, job.function as JobFunction)) {
+      // Cluster 2 (admin/customer service)
+      if (
+        isMatchWorthSaving(
+          {
+            id: cluster2.id,
+            function: cluster2.function as JobFunction,
+            jobTitles: JSON.parse(cluster2.jobTitles),
+            skills: JSON.parse(cluster2.skills),
+            yearsExperience: cluster2.yearsExperience,
+          },
+          {
+            id: job.id,
+            function: job.function as JobFunction,
+            title: job.title,
+            requiredSkills: JSON.parse(job.requiredSkills),
+            preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+            minEducation: job.minEducation as EducationLevel,
+            educationField: job.educationField,
+            minExperience: job.minExperience,
+          },
+        )
+      ) {
         const breakdown = scoreMatch(
           {
             id: cluster2.id,
@@ -352,7 +393,8 @@ export async function POST(request: Request) {
             titleScore: breakdown.titleScore,
             skillsScore: breakdown.skillsScore,
             educationScore: breakdown.educationScore,
-            fieldScore: breakdown.fieldScore,
+            specializationScore: breakdown.specializationScore,
+            familyScore: breakdown.familyScore,
             experienceScore: breakdown.experienceScore,
             explanations: JSON.stringify(breakdown.explanations),
             stale: false,

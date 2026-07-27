@@ -1,6 +1,7 @@
 // ============================================================================
 // lib/llm/prompts/jd-prompt.ts
 // System + user prompt templates for Job Description extraction.
+// v2.0 — Uses 42 career families with specialization codes.
 // ============================================================================
 
 export const JD_SYSTEM_PROMPT = `JD_EXTRACTION
@@ -10,19 +11,27 @@ You are a job-description parser for a Kenyan job-matching platform. Read a job 
 CRITICAL RULES:
 1. Return ONLY a valid JSON object. No prose, no markdown fences.
 2. NEVER invent data not in the JD. Use null/omit if missing.
-3. "function" must be one of: "engineering" | "finance" | "marketing" | "sales" | "operations" | "human_resources" | "technology" | "design" | "customer_service" | "healthcare" | "education" | "legal" | "agriculture" | "construction" | "hospitality" | "transport" | "security" | "community_social" | "manufacturing" | "government" | "consulting" | "environment"
-4. "sector" must be one of: "technology" | "financial_services" | "healthcare" | "education" | "manufacturing" | "retail" | "agriculture" | "construction" | "hospitality" | "government" | "non_profit" | "media"
-5. "jobType" must be one of: "full_time" | "part_time" | "contract" | "internship" | "temporary" | "freelance"
-6. "minEducation" must be one of: "none" | "certificate" | "diploma" | "bachelors" | "masters" | "phd"
-7. "requiredSkills" — skills explicitly required by the JD (essential for the role).
-8. "preferredSkills" — skills listed as "nice to have", "bonus", "advantage", or similar.
-9. "minExperience" — minimum years of experience required. Integer. If "entry level" or "graduate", use 0. If unspecified, default to 1.
-10. "administrativeRequirements" — non-skill requirements like "CPA K", "Portfolio", "3 professional referees", "Must be Kenyan citizen".
+3. "function" must be one of these career family codes:
+   "eng" | "itt" | "cys" | "hlt" | "pha" | "fin" | "bfs" | "ins"
+   | "con" | "min" | "enu" | "mfg" | "gpa" | "swc" | "npo" | "mkt" | "cad" | "mec"
+   | "sal" | "osc" | "hrm" | "edu" | "leg" | "cnt" | "dsa" | "toh" | "trl" | "tel"
+   | "aut" | "ava" | "agr" | "ree" | "rcg" | "ecm" | "env" | "sed" | "pfm" | "spr"
+   | "vah" | "wms" | "adm"
+4. "specialization" (optional) — use "FAMILY-SPEC" format if the JD clearly specifies a sub-discipline.
+   e.g. "ITT-NET" for network engineer role, "FIN-AUD" for auditor role.
+5. "sector" must be one of: "technology" | "financial_services" | "healthcare" | "education" | "manufacturing" | "retail" | "agriculture" | "construction" | "hospitality" | "government" | "non_profit" | "media"
+6. "jobType" must be one of: "full_time" | "part_time" | "contract" | "internship" | "temporary" | "freelance"
+7. "minEducation" must be one of: "none" | "certificate" | "diploma" | "bachelors" | "masters" | "phd"
+8. "requiredSkills" — skills explicitly required by the JD (essential for the role).
+9. "preferredSkills" — skills listed as "nice to have", "bonus", "advantage", or similar.
+10. "minExperience" — minimum years of experience required. Integer. If "entry level" or "graduate", use 0. If unspecified, default to 1.
+11. "administrativeRequirements" — non-skill requirements like "CPA K", "Portfolio", "3 professional referees".
 
 JSON SCHEMA:
 {
   "title": "string — the job title, e.g. 'Senior Accountant'",
-  "function": "canonical function",
+  "function": "career family code",
+  "specialization": "FAMILY-SPEC code | optional",
   "sector": "canonical sector",
   "jobType": "canonical jobType",
   "minEducation": "canonical education level",

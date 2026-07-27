@@ -14,6 +14,7 @@
 // ============================================================================
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { FUNCTION_PATTERNS } from '@/lib/taxonomy';
 
 const MODEL_NAME = 'gemini-1.5-flash';
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -121,97 +122,8 @@ function stubGenerate(opts: GenerateOptions): string {
 // Each keyword has a weight: TITLE patterns are worth 3x (they appear in role
 // headings), while GENERAL patterns are worth 1x (may appear in descriptions).
 
-const FUNCTION_PATTERNS: Record<string, { general: string[]; titles: string[] }> = {
-  engineering: {
-    general: ['mechanical', 'electrical', 'civil engineer', 'structural', 'chemical', 'automotive', 'industrial', 'mechatronics'],
-    titles: ['engineer', 'engineering manager', 'site engineer', 'project engineer'],
-  },
-  finance: {
-    general: ['ifrs', 'treasury', 'financial reporting', 'quickbooks', 'sap accounting', 'budgeting', 'reconciliation'],
-    titles: ['accountant', 'accounting officer', 'accounts assistant', 'finance officer', 'finance manager', 'auditor', 'audit manager', 'bookkeeper', 'cpa', 'tax specialist', 'tax manager', 'financial analyst'],
-  },
-  marketing: {
-    general: ['advertising', 'social media', 'content writing', 'seo', 'public relations', 'brand management', 'broadcast', 'news anchor', 'news presentation', 'programme producer', 'radio presenter', 'journalism', 'media production', 'television', 'video editing', 'live broadcast'],
-    titles: ['marketing officer', 'marketing manager', 'marketing executive', 'digital marketer', 'brand manager', 'communications officer', 'news anchor', 'news presenter', 'presenter', 'radio presenter', 'programme producer', 'program producer', 'broadcast journalist', 'journalist', 'reporter', 'news editor', 'video editor', 'media manager', 'media professional', 'social media manager', 'content creator', 'technical operator', 'production assistant', 'camera operator'],
-  },
-  sales: {
-    general: ['b2b', 'b2c', 'territory', 'sales target', 'quota'],
-    titles: ['sales executive', 'sales manager', 'sales representative', 'business development', 'account manager', 'sales officer'],
-  },
-  operations: {
-    general: ['supply chain', 'logistics', 'procurement', 'warehouse', 'inventory', 'project management'],
-    titles: ['operations officer', 'operations manager', 'logistics coordinator', 'procurement officer', 'warehouse manager'],
-  },
-  human_resources: {
-    general: ['talent acquisition', 'people operations', 'personnel', 'staffing'],
-    titles: ['hr officer', 'hr manager', 'recruitment officer', 'recruitment manager', 'payroll officer', 'human resources manager'],
-  },
-  technology: {
-    general: ['javascript', 'python', 'react', 'node.js', 'typescript', 'aws', 'docker', 'kubernetes', 'devops', 'cybersecurity', 'sql', 'postgresql', 'git'],
-    titles: ['software developer', 'software engineer', 'developer', 'programmer', 'it officer', 'it manager', 'systems administrator', 'frontend developer', 'backend developer', 'fullstack developer', 'data scientist', 'data analyst', 'mobile developer'],
-  },
-  design: {
-    general: ['photoshop', 'illustrator', 'figma', 'visual design', 'creative suite'],
-    titles: ['graphic designer', 'ui/ux designer', 'product designer', 'web designer', 'creative designer', 'design officer'],
-  },
-  customer_service: {
-    general: ['call center', 'helpdesk', 'customer care', 'client service', 'customer success'],
-    titles: ['customer service representative', 'customer support', 'office administrator', 'receptionist', 'client relations'],
-  },
-  healthcare: {
-    general: ['pharmacy', 'patient care', 'physiotherapy', 'public health', 'clinical'],
-    titles: ['nurse', 'clinical officer', 'doctor', 'medical officer', 'pharmacist', 'nutritionist'],
-  },
-  education: {
-    general: ['curriculum', 'instructional', 'academic', 'pedagogy'],
-    titles: ['teacher', 'tutor', 'lecturer', 'instructor', 'trainer', 'dean', 'headteacher', 'education officer'],
-  },
-  legal: {
-    general: ['paralegal', 'regulatory', 'advocate', 'counsel'],
-    titles: ['lawyer', 'attorney', 'legal officer', 'legal manager', 'compliance officer'],
-  },
-  // ── Kenya-market expansions ──
-  agriculture: {
-    general: ['agribusiness', 'agronomy', 'agricultural', 'horticulture', 'floriculture', 'aquaculture', 'veterinary', 'livestock', 'crop production', 'extension services'],
-    titles: ['agricultural officer', 'extension officer', 'farm manager', 'agronomist', 'veterinary officer', 'livestock officer', 'forestry officer'],
-  },
-  construction: {
-    general: ['building', 'building works', 'quantity surveying', 'structural engineering'],
-    titles: ['site engineer', 'site manager', 'foreman', 'quantity surveyor', 'architect', 'building surveyor', 'contractor', 'mason', 'plumber', 'electrician'],
-  },
-  hospitality: {
-    general: ['hotel', 'tourism', 'catering', 'housekeeping', 'safari', 'events', 'restaurant'],
-    titles: ['chef', 'head chef', 'hotel manager', 'front office manager', 'travel agent', 'tour guide', 'events coordinator', 'food & beverage manager', 'housekeeper'],
-  },
-  transport: {
-    general: ['driving', 'delivery', 'fleet', 'shipping', 'freight', 'customs', 'clearing', 'courier', 'warehouse operations'],
-    titles: ['driver', 'truck driver', 'bus driver', 'delivery driver', 'fleet manager', 'logistics coordinator', 'clearing agent', 'dispatcher', 'warehouse manager'],
-  },
-  security: {
-    general: ['safety', 'health and safety', 'occupational safety', 'fire safety', 'surveillance', 'loss prevention', 'investigation'],
-    titles: ['security guard', 'security officer', 'safety officer', 'health & safety officer', 'investigator', 'loss prevention officer'],
-  },
-  community_social: {
-    general: ['community development', 'ngo', 'non-profit', 'humanitarian', 'monitoring and evaluation', 'counseling', 'psychosocial', 'beneficiary'],
-    titles: ['community development officer', 'programme officer', 'field officer', 'social worker', 'monitoring & evaluation officer', 'm&e officer', 'counselor', 'ngo coordinator', 'project officer'],
-  },
-  manufacturing: {
-    general: ['factory', 'production', 'assembly', 'quality control', 'quality assurance', 'machining', 'welding', 'fabrication', 'packaging'],
-    titles: ['production manager', 'factory manager', 'quality controller', 'shift supervisor', 'plant manager', 'production supervisor'],
-  },
-  government: {
-    general: ['civil service', 'public service', 'county government', 'parastatal', 'state corporation', 'ministry'],
-    titles: ['government officer', 'administrative officer', 'county officer', 'clerk', 'registry clerk', 'procurement officer'],
-  },
-  consulting: {
-    general: ['management consulting', 'advisory', 'strategy consulting', 'business advisory', 'risk management'],
-    titles: ['consultant', 'senior consultant', 'advisory manager', 'strategy analyst', 'business advisor'],
-  },
-  environment: {
-    general: ['conservation', 'wildlife', 'forestry', 'climate', 'natural resources', 'mining', 'geology', 'water resources', 'renewable energy', 'sanitation'],
-    titles: ['environmental officer', 'conservation officer', 'forestry officer', 'water engineer', 'geologist', 'mining engineer', 'environmental impact assessor'],
-  },
-};
+// ─── Function patterns are now imported from taxonomy.ts ──────────────────────
+// FUNCTION_PATTERNS is imported from @/lib/taxonomy above
 
 // Keywords that MUST use word-boundary matching to avoid false positives
 const WORD_BOUNDARY_REQUIRED = new Set([
@@ -611,32 +523,51 @@ function stubExtractCv(userPrompt: string): string {
 // ─── JD stub ────────────────────────────────────────────────────────────────
 
 function stubExtractJd(jdText: string): string {
-  const detectedFunctions = detectFunctions(jdText);
-  const fn = detectedFunctions[0] ?? 'operations';
+  const detectedFunctions = scoreFunctions(jdText);
+  const fn = detectedFunctions[0]?.fn ?? 'adm';
 
   const titleMap: Record<string, string> = {
-    finance: 'Accountant',
-    technology: 'Software Engineer',
-    marketing: 'Marketing Officer',
-    sales: 'Sales Executive',
-    operations: 'Operations Officer',
-    human_resources: 'HR Officer',
-    design: 'Graphic Designer',
-    customer_service: 'Customer Service Representative',
-    healthcare: 'Clinical Officer',
-    education: 'Teacher',
-    legal: 'Legal Officer',
-    engineering: 'Engineer',
-    agriculture: 'Agricultural Officer',
-    construction: 'Site Engineer',
-    hospitality: 'Hotel Manager',
-    transport: 'Logistics Coordinator',
-    security: 'Security Officer',
-    community_social: 'Community Development Officer',
-    manufacturing: 'Production Manager',
-    government: 'Administrative Officer',
-    consulting: 'Consultant',
-    environment: 'Environmental Officer',
+    fin: 'Accountant',
+    itt: 'Software Engineer',
+    mkt: 'Marketing Officer',
+    sal: 'Sales Executive',
+    osc: 'Operations Officer',
+    hrm: 'HR Officer',
+    cad: 'Graphic Designer',
+    eng: 'Engineer',
+    agr: 'Agricultural Officer',
+    con: 'Site Engineer',
+    toh: 'Hotel Manager',
+    trl: 'Logistics Coordinator',
+    sed: 'Security Officer',
+    npo: 'Community Development Officer',
+    mfg: 'Production Manager',
+    gpa: 'Administrative Officer',
+    cnt: 'Consultant',
+    env: 'Environmental Officer',
+    hlt: 'Clinical Officer',
+    edu: 'Teacher',
+    leg: 'Legal Officer',
+    bfs: 'Business Banker',
+    ins: 'Underwriter',
+    dsa: 'Data Analyst',
+    mec: 'Journalist',
+    adm: 'Administrative Assistant',
+    pfm: 'Facilities Manager',
+    tel: 'Telecom Engineer',
+    aut: 'Automotive Technician',
+    ava: 'Aviation Officer',
+    ree: 'Estate Agent',
+    rcg: 'Store Manager',
+    ecm: 'E-Commerce Manager',
+    min: 'Mining Engineer',
+    enu: 'Energy Engineer',
+    pha: 'Pharmaceutical Officer',
+    cys: 'Cybersecurity Analyst',
+    swc: 'Social Worker',
+    spr: 'Sports Coach',
+    vah: 'Veterinary Officer',
+    wms: 'Waste Management Officer',
   };
 
   // Sector detection — fall back to a sensible default based on function
@@ -661,23 +592,47 @@ function stubExtractJd(jdText: string): string {
   if (!sector) {
     // Default sector based on detected function
     const FN_TO_DEFAULT_SECTOR: Record<string, string> = {
-      finance: 'financial_services',
-      technology: 'technology',
-      healthcare: 'healthcare',
-      education: 'education',
-      marketing: 'media',
-      engineering: 'manufacturing',
-      legal: 'government',
-      agriculture: 'agriculture',
-      construction: 'construction',
-      hospitality: 'hospitality',
-      transport: 'retail',
-      security: 'government',
-      community_social: 'non_profit',
-      manufacturing: 'manufacturing',
-      government: 'government',
-      consulting: 'financial_services',
-      environment: 'agriculture',
+      fin: 'financial_services',
+      itt: 'technology',
+      hlt: 'healthcare',
+      edu: 'education',
+      mkt: 'media',
+      eng: 'manufacturing',
+      leg: 'government',
+      agr: 'agriculture',
+      con: 'construction',
+      toh: 'hospitality',
+      trl: 'retail',
+      sed: 'government',
+      npo: 'non_profit',
+      mfg: 'manufacturing',
+      gpa: 'government',
+      cnt: 'financial_services',
+      env: 'agriculture',
+      bfs: 'financial_services',
+      ins: 'financial_services',
+      dsa: 'technology',
+      mec: 'media',
+      cad: 'technology',
+      sal: 'financial_services',
+      osc: 'retail',
+      hrm: 'financial_services',
+      tel: 'technology',
+      aut: 'manufacturing',
+      ava: 'government',
+      ree: 'construction',
+      rcg: 'retail',
+      ecm: 'technology',
+      min: 'agriculture',
+      enu: 'technology',
+      pha: 'healthcare',
+      cys: 'technology',
+      swc: 'non_profit',
+      spr: 'non_profit',
+      vah: 'agriculture',
+      wms: 'government',
+      adm: 'government',
+      pfm: 'construction',
     };
     sector = FN_TO_DEFAULT_SECTOR[fn] ?? 'technology';
   }
@@ -731,19 +686,23 @@ function stubExtractJd(jdText: string): string {
       : /intern/i.test(jdText) ? 'internship'
       : 'full_time',
     minEducation,
-    educationField: fn === 'finance' ? 'Accounting'
-      : fn === 'technology' ? 'Computer Science'
-      : fn === 'marketing' ? 'Marketing'
-      : fn === 'human_resources' ? 'Human Resource Management'
-      : fn === 'engineering' ? 'Engineering'
-      : fn === 'agriculture' ? 'Agriculture'
-      : fn === 'healthcare' ? 'Medicine'
-      : fn === 'education' ? 'Education'
-      : fn === 'construction' ? 'Construction Management'
-      : fn === 'hospitality' ? 'Hospitality Management'
-      : fn === 'legal' ? 'Law'
-      : fn === 'environment' ? 'Environmental Science'
-      : fn === 'community_social' ? 'Social Work'
+    educationField: fn === 'fin' ? 'Accounting'
+      : fn === 'itt' ? 'Computer Science'
+      : fn === 'mkt' ? 'Marketing'
+      : fn === 'hrm' ? 'Human Resource Management'
+      : fn === 'eng' ? 'Engineering'
+      : fn === 'agr' ? 'Agriculture'
+      : fn === 'hlt' ? 'Medicine'
+      : fn === 'edu' ? 'Education'
+      : fn === 'con' ? 'Construction Management'
+      : fn === 'toh' ? 'Hospitality Management'
+      : fn === 'leg' ? 'Law'
+      : fn === 'env' ? 'Environmental Science'
+      : fn === 'swc' ? 'Social Work'
+      : fn === 'npo' ? 'Community Development'
+      : fn === 'dsa' ? 'Applied Statistics'
+      : fn === 'bfs' ? 'Business Administration'
+      : fn === 'dsa' ? 'Applied Statistics'
       : 'Business Administration',
     minExperience,
     requiredSkills: skills.slice(0, 4),

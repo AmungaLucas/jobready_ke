@@ -15,7 +15,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { scoreMatch, isFunctionMatch } from '@/lib/matching';
+import { scoreMatch, isMatchWorthSaving } from '@/lib/matching';
 import { JobFunction, EducationLevel } from '@/lib/normalization';
 
 export async function POST(request: Request) {
@@ -69,8 +69,28 @@ export async function POST(request: Request) {
       for (const candidate of candidates) {
         // For each selected cluster, compute a score (one match per cluster)
         for (const cluster of candidate.clusters) {
-          // Hard filter: function must match
-          if (!isFunctionMatch(cluster.function as JobFunction, job.function as JobFunction)) {
+          // Pre-filter: only score matches worth saving
+          if (
+            !isMatchWorthSaving(
+              {
+                id: cluster.id,
+                function: cluster.function as JobFunction,
+                jobTitles: JSON.parse(cluster.jobTitles),
+                skills: JSON.parse(cluster.skills),
+                yearsExperience: cluster.yearsExperience,
+              },
+              {
+                id: job.id,
+                function: job.function as JobFunction,
+                title: job.title,
+                requiredSkills: JSON.parse(job.requiredSkills),
+                preferredSkills: job.preferredSkills ? JSON.parse(job.preferredSkills) : [],
+                minEducation: job.minEducation as EducationLevel,
+                educationField: job.educationField,
+                minExperience: job.minExperience,
+              },
+            )
+          ) {
             continue;
           }
 
@@ -116,7 +136,8 @@ export async function POST(request: Request) {
                 titleScore: breakdown.titleScore,
                 skillsScore: breakdown.skillsScore,
                 educationScore: breakdown.educationScore,
-                fieldScore: breakdown.fieldScore,
+                specializationScore: breakdown.specializationScore,
+                familyScore: breakdown.familyScore,
                 experienceScore: breakdown.experienceScore,
                 explanations: JSON.stringify(breakdown.explanations),
                 stale: false,
@@ -126,7 +147,8 @@ export async function POST(request: Request) {
                 titleScore: breakdown.titleScore,
                 skillsScore: breakdown.skillsScore,
                 educationScore: breakdown.educationScore,
-                fieldScore: breakdown.fieldScore,
+                specializationScore: breakdown.specializationScore,
+                familyScore: breakdown.familyScore,
                 experienceScore: breakdown.experienceScore,
                 explanations: JSON.stringify(breakdown.explanations),
                 stale: false,

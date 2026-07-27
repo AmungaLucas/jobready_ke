@@ -34,30 +34,59 @@ enum EducationLevel {
 }
 
 enum JobFunction {
-  // ── Core professional functions (original 12) ──
-  engineering
-  finance
-  marketing
-  sales
-  operations
-  human_resources
-  technology
-  design
-  customer_service
-  healthcare
-  education
-  legal
-  // ── Kenya-market expansions ──
-  agriculture
-  construction
-  hospitality
-  transport
-  security
-  community_social
-  manufacturing
-  government
-  consulting
-  environment
+  // ── Engineering & Technical ──
+  eng                          // Engineering
+  itt                          // Information Technology
+  cys                          // Cybersecurity
+  // ── Science & Health ──
+  hlt                          // Healthcare & Medical
+  pha                          // Pharmaceutical & Life Sciences
+  // ── Business & Finance ──
+  fin                          // Finance & Accounting
+  bfs                          // Banking & Financial Services
+  ins                          // Insurance
+  // ── Building & Infrastructure ──
+  con                          // Construction & Built Environment
+  min                          // Mining & Resources
+  enu                          // Energy & Utilities
+  mfg                          // Manufacturing & Production
+  // ── Government & Social ──
+  gpa                          // Government & Public Administration
+  swc                          // Social Work & Community
+  npo                          // Non-Profit & Development
+  // ── Creative & Media ──
+  mkt                          // Marketing & Advertising
+  cad                          // Creative Arts & Design
+  mec                          // Media & Communications
+  // ── Sales & Operations ──
+  sal                          // Sales & Business Development
+  osc                          // Operations & Supply Chain
+  // ── People & Education ──
+  hrm                          // Human Resources
+  edu                          // Education & Training
+  // ── Professional Services ──
+  leg                          // Legal & Compliance
+  cnt                          // Consulting & Advisory
+  dsa                          // Data Science & Analytics
+  // ── Trade & Transport ──
+  toh                          // Tourism & Hospitality
+  trl                          // Transportation & Logistics
+  tel                          // Telecommunications
+  aut                          // Automotive
+  ava                          // Aviation & Aerospace
+  // ── Sector-Specific ──
+  agr                          // Agriculture & Agribusiness
+  ree                          // Real Estate & Property
+  rcg                          // Retail & Consumer Goods
+  ecm                          // E-Commerce & Digital
+  env                          // Environmental & Sustainability
+  // ── Support Functions ──
+  sed                          // Security & Defense
+  pfm                          // Facilities & Property Management
+  spr                          // Sports & Recreation
+  vah                          // Veterinary & Animal Health
+  wms                          // Waste & Sanitation Management
+  adm                          // Administration & Office Support
 }
 
 enum Sector {
@@ -117,6 +146,7 @@ enum ApplicationStatus {
 enum MatchExplanation {
   exact_function_match
   strong_skill_overlap
+  specialization_match
   education_meets_minimum
   education_field_related
   experience_meets_minimum
@@ -250,6 +280,7 @@ model WorkExperienceCluster {
   id             String      @id @default(cuid())
   candidateId    String
   function       JobFunction
+  specialization String?     // e.g. "ITT-NET", "FIN-AUD" — validated against taxonomy
   jobTitles      String      @db.Text // JSON array: ["Accountant", "Senior Accountant"]
   skills         String      @db.Text // JSON array: ["accounting", "ifrs", "audit"]
   yearsExperience Int
@@ -288,6 +319,7 @@ model Job {
   id                    String       @id @default(cuid())
   title                 String
   function              JobFunction
+  specialization        String?      // e.g. "ITT-NET", "FIN-AUD" — validated against taxonomy
   sector                Sector
   jobType               JobType
   minEducation          EducationLevel
@@ -328,12 +360,13 @@ model JobMatch {
   candidateId      String
   jobId            String
   matchedClusterId String?
-  // Score breakdown (max 100)
+  // Score breakdown (normalized to 100)
   totalScore       Int      // 0-100
-  titleScore       Int      // 0-40
-  skillsScore      Int      // 0-35
-  educationScore   Int      // 0-15
-  fieldScore       Int      // 0-5
+  titleScore       Int      // 0-45
+  skillsScore      Int      // 0-40
+  specializationScore Int  // 0-20
+  familyScore      Int      // 0-10
+  educationScore   Int      // 0-10
   experienceScore  Int      // 0-10
   // Explanation: which dimensions matched
   explanations     String   @db.Text // JSON array of MatchExplanation

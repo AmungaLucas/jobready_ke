@@ -16,6 +16,7 @@ export interface RawWorkExperience {
   yearsExperience: number; // computed by LLM
   description?: string;
   function: string; // raw text — will be normalized to JobFunction
+  specialization?: string; // e.g. "ITT-NET" — will be validated
   skills: string[];
 }
 
@@ -28,6 +29,7 @@ export interface RawEducation {
 
 export interface RawCluster {
   function: string; // canonical JobFunction string
+  specialization?: string; // e.g. "ITT-NET"
   jobTitles: string[];
   skills: string[];
   yearsExperience: number;
@@ -45,6 +47,7 @@ export interface CVExtractionResult {
 export interface JDExtractionResult {
   title: string;
   function: string; // raw text — will be normalized
+  specialization?: string; // e.g. "ITT-NET" — will be validated
   sector: string; // raw text — will be normalized
   jobType: string; // raw text — will be normalized
   minEducation: string; // raw text — will be normalized

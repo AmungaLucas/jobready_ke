@@ -99,10 +99,10 @@ function normalizeSectorOrFallback(rawSector: string, fallbackTitle: string): st
   if (normalized) return normalized;
   // Common mappings: if function is finance, default sector to financial_services
   const fn = normalizeJobFunction(fallbackTitle);
-  if (fn === 'finance') return 'financial_services';
-  if (fn === 'technology') return 'technology';
-  if (fn === 'healthcare') return 'healthcare';
-  if (fn === 'education') return 'education';
+  if (fn === 'fin') return 'financial_services';
+  if (fn === 'itt') return 'technology';
+  if (fn === 'hlt') return 'healthcare';
+  if (fn === 'edu') return 'education';
   return 'technology';
 }
 
