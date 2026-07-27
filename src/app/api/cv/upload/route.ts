@@ -165,14 +165,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── 6. Persist: education records ────────────────────────────────────
-    // Delete old education, replace with newly extracted
-    if (candidate.education.length > 0) {
-      await db.educationRecord.deleteMany({
-        where: { candidateId: candidate.id },
-      });
-    }
+    // ── 6. Clean slate: remove old education + clusters + matches ────────
+    // Order matters: JobMatch references WorkExperienceCluster via matchedClusterId
+    // (onDelete: NoAction), so we must delete matches BEFORE clusters.
+    await db.$transaction([
+      db.jobMatch.deleteMany({ where: { candidateId: candidate.id } }),
+      db.workExperienceCluster.deleteMany({ where: { candidateId: candidate.id } }),
+      db.educationRecord.deleteMany({ where: { candidateId: candidate.id } }),
+    ]);
 
+    // ── 7. Persist: education records ────────────────────────────────────
     const educationRecords = await Promise.all(
       extracted.education.map((edu) =>
         db.educationRecord.create({
@@ -187,14 +189,8 @@ export async function POST(request: Request) {
       ),
     );
 
-    // ── 7. Persist: work experience clusters ──────────────────────────────
-    // Delete old clusters, replace with newly extracted
+    // ── 8. Persist: work experience clusters ──────────────────────────────
     // Auto-select the top cluster (most years of experience)
-    if (candidate.clusters.length > 0) {
-      await db.workExperienceCluster.deleteMany({
-        where: { candidateId: candidate.id },
-      });
-    }
 
     const clusterRecords = await Promise.all(
       extracted.suggestedClusters.map((cluster, index) =>
