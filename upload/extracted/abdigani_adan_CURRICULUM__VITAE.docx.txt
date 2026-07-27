@@ -1,0 +1,181 @@
+CURRICULUM  VITAE:
+ 
+ABDIGANI ADAN GUYO
+P.O. Box 42096. Nairobi. 0704064276 / 0113420618
+Email: abdulghaniadan001@gmail.com.
+Personal details
+ID number: 36594933
+Date of birth: 14/01/1998
+Nationality: Kenyan
+Languages: Swahili, English, Borana
+
+PROFESSIONAL PROFILE
+A highly motivated and results-driven ICT professional with over four years of progressive experience in ICT support, systems administration, and network administration, comprising one year of internship and over three years as an ICT Technician. Experienced in planning, implementing, maintaining and securing enterprise ICT infrastructure while providing excellent technical support to end users.
+Skilled in enterprise networking using MikroTik, Huawei CloudEngine, Cisco Nexus and UniFi technologies, Windows Server administration, Active Directory, Microsoft 365, Microsoft Dynamics 365 ERP, Linux administration, cybersecurity, CCTV systems, hardware and software support, and ICT infrastructure management. Recognised for successfully leading network improvement initiatives, strengthening wireless infrastructure, implementing VLAN segmentation, and delivering reliable ICT services in a dynamic institutional environment.
+Currently pursuing a Master of Information Technology while continuously expanding expertise in enterprise networking, cybersecurity, cloud technologies and systems administration.
+
+CORE COMPETENCIES
+ICT Infrastructure Management
+Network Administration
+Systems Administration
+Windows Server Administration
+Active Directory Administration
+Microsoft 365 Administration
+Microsoft Dynamics 365 ERP Support
+Linux Systems Administration
+MikroTik Router Administration
+Cisco Nexus Switching
+Huawei CloudEngine Switching
+Routing & Switching
+VLAN Design & Implementation
+TCP/IP, DHCP & DNS
+Wireless Networking (UniFi)
+CCTV & IP Surveillance Systems
+Hardware & Software Installation
+Helpdesk & Technical Support
+Cybersecurity & Information Security
+Backup & Disaster Recovery
+ICT Documentation & Asset Management
+
+PROFESSIONAL EXPERIENCE
+ICT Technician
+Umma University | 2023 – Present
+Key Responsibilities
+Provide first and second-line ICT support to staff and students.
+Install, configure and maintain desktop computers, laptops, printers and peripheral devices.
+Administer Active Directory user accounts, password resets, security groups and user permissions.
+Support Microsoft Dynamics 365 ERP and Microsoft 365 services.
+Configure and administer MikroTik routers, Huawei CloudEngine switches, Cisco Nexus switches and UniFi wireless infrastructure.
+Design, configure and troubleshoot VLANs, trunk links and enterprise LAN/WAN environments.
+Monitor network performance and resolve hardware, software and connectivity issues.
+Configure DHCP, DNS, routing and wireless networking services.
+Install and maintain Dahua and Hikvision CCTV surveillance systems.
+Perform routine maintenance, firmware upgrades and security updates.
+Create and maintain configuration backups for network devices and ICT systems.
+Maintain ICT asset registers and technical documentation.
+Coordinate ICT equipment maintenance and vendor support.
+Train staff and students on the effective and secure use of ICT systems.
+Key Achievements
+Played a key role in restructuring the university network infrastructure to improve performance, security and scalability.
+Successfully implemented VLAN segmentation for staff, students, laboratories, CCTV, management and server environments.
+Expanded and optimised the university wireless infrastructure by adopting and managing over 130 UniFi Access Points.
+Configured and maintained Huawei CloudEngine, Cisco Nexus and MikroTik enterprise network infrastructure.
+Resolved complex Layer 2 switching, STP and network performance issues.
+Supported Microsoft Dynamics 365 ERP and Microsoft 365 users across the institution.
+Improved network reliability through proactive monitoring, maintenance and troubleshooting.
+Participated in ICT infrastructure improvements supporting ISO quality audit requirements.
+Installed, configured and maintained enterprise IP surveillance systems using Dahua and Hikvision technologies.
+
+ICT Intern
+Umma University | 2022 – 2023
+Key Responsibilities
+Provided first-line ICT support to staff and students.
+Installed and configured desktop computers, laptops and printers.
+Assisted in troubleshooting hardware, software and network-related issues.
+Supported Active Directory user account administration and password management.
+Assisted in configuring switches, routers and wireless access points.
+Performed preventive maintenance on ICT equipment.
+Supported Microsoft Office 365 and institutional information systems.
+Maintained ICT inventories and documentation.
+Assisted with computer laboratory maintenance and system upgrades.
+Worked alongside senior ICT staff during network expansion and infrastructure support activities.
+
+EDUCATION
+Master of Information Technology (Ongoing)
+INTI International University, Malaysia
+
+Bachelor of Science in Computer Science
+Umma University
+
+Diploma in Information Communication Technology
+Umma University
+
+PROFESSIONAL CERTIFICATIONS
+Cisco Certified Network Associate (CCNA) – Modules 1, 2 & 3
+Linux Professional Institute Certification (LPIC) – Linux I (101)
+Linux Professional Institute Certification (LPIC) – Linux II (102)
+KENET Linux System Administration Training
+KENET Cybersecurity Training
+ICANN Grant Funded Cybersecurity Training
+
+TECHNICAL SKILLS
+Networking
+MikroTik RouterOS
+Cisco Nexus Switches
+Huawei CloudEngine Switches
+VLAN Configuration
+Routing & Switching
+TCP/IP
+DHCP
+DNS
+NAT
+VPN
+Wireless Networking (UniFi)
+Systems Administration
+Windows 10 & Windows 11
+Windows Server
+Active Directory
+Microsoft 365 Administration
+Microsoft Dynamics 365 ERP
+Linux Administration (Ubuntu)
+Group Policy
+User & Access Management
+Backup & Recovery
+Security
+Endpoint Security
+Network Security
+Patch Management
+Cybersecurity Best Practices
+Access Control
+Surveillance Systems
+Dahua CCTV Systems
+Hikvision CCTV Systems
+IP Camera Configuration
+NVR Administration
+PoE Network Deployment
+ICT Tools
+WinBox
+LibreNMS
+PuTTY
+Microsoft Office Suite
+VirtualBox
+Cisco Packet Tracer
+
+SELECTED PROFESSIONAL PROJECTS
+Enterprise Network Restructuring
+Participated in redesigning and improving the university network infrastructure through VLAN segmentation, switch upgrades, routing optimisation and enhanced network security.
+Campus Wireless Optimisation
+Expanded and optimised the campus wireless infrastructure through UniFi Controller administration and large-scale access point deployment.
+Microsoft Dynamics 365 ERP Support
+Provided user support, troubleshooting and system assistance for Microsoft Dynamics 365 ERP and Microsoft 365 applications.
+Enterprise CCTV Deployment
+Installed, configured and maintained Dahua and Hikvision IP surveillance systems integrated into the campus network.
+Infrastructure Monitoring
+Implemented network monitoring and diagnostics using LibreNMS and SNMP to improve service availability and proactive maintenance.
+
+PROFESSIONAL ATTRIBUTES
+Strong analytical and troubleshooting skills
+Excellent communication and interpersonal skills
+Customer-focused ICT support
+Ability to work under pressure
+Excellent documentation skills
+Strong organisational and planning abilities
+Team player with leadership potential
+Committed to continuous professional development
+
+REFEREES
+References
+1.  MR. ABDIRIZAQ ABDI
+ICT MANAGER
+UMMA UNIVERSITY
+abdirizaq@umma.ac.ke
++254733997123.
+ 
+2. DR. MUCHELULE WANJALA
+LECTURER, UMMA UNIVERSITY
++254701952124
+ 
+3. ISAACK ABDOW
+ICT DIRECTOR, UMMA UNIVERSITY
+iabdow@umma.ac.ke
+ +254720161652.
