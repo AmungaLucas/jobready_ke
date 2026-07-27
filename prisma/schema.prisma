@@ -10,6 +10,9 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+  // For local dev with SQLite, override provider:
+  // provider = "sqlite"
+  // url      = "file:./db/custom.db"
 }
 
 // ============================================================================
